@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Notix</title>
+<meta name="theme-color" content="#191713">
+<link rel="icon" href="/icon.svg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<aside>
+  <div class="mark">Notix</div>
+  <form id="newp"><input name="title" placeholder="Yeni proje…" autocomplete="off" required><button title="Proje aç">+</button></form>
+  <input id="find" type="search" placeholder="Ara…" autocomplete="off" aria-label="Tüm projelerde ara">
+  <nav id="projects"></nav>
+  <button id="bin" class="proj bin"><span class="name">Çöp kutusu</span><span class="count"></span></button>
+  <footer id="info">
+    <div id="where"></div>
+    <div class="data">
+      <button id="exp" class="link">Dışa aktar</button>
+      <button id="imp" class="link">İçe aktar</button>
+      <input id="file" type="file" accept=".json,.md" multiple hidden>
+    </div>
+  </footer>
+</aside>
+<main id="main"></main>
+<button id="help" class="corner">⌨ Kısayollar</button>
+<dialog id="keys" aria-label="Kısayollar"></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="/md.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

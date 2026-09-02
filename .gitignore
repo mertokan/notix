@@ -1,0 +1,7 @@
+node_modules/
+.notix-token
+.notix-config.json
+notes/.trash/
+dist/
+.playwright-mcp/
+notes/

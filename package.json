@@ -1,0 +1,42 @@
+{
+  "name": "notix",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first proje notlari / yapilacaklar. Kaynak = duz markdown, AI'lar dogrudan duzenler.",
+  "main": "electron.js",
+  "scripts": {
+    "start": "electron .",
+    "server": "node server.js",
+    "test": "node --test",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3"
+  },
+  "repository": "github:mertokan/notix",
+  "build": {
+    "appId": "com.mertokan.notix",
+    "productName": "Notix",
+    "files": [
+      "electron.js",
+      "server.js",
+      "store.js",
+      "package.json",
+      "public/**"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "mertokan",
+      "repo": "notix"
+    }
+  }
+}

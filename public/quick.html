@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Notix — hızlı ekleme</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    overflow: hidden; display: flex; flex-direction: column;
+    background: #201d18; border: 1px solid #63b0a0; color: #ece6da;
+    font: 16px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  #bar { flex: none; height: 60px; display: flex; align-items: center; gap: 10px; padding: 0 14px; }
+  /* ana pencerenin ekleme satiriyla ayni: dosyaya eklenecek satiri gosterir */
+  .box { font: 15px ui-monospace, "Cascadia Mono", Consolas, monospace; color: #63b0a0; user-select: none; }
+  input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: inherit; font: inherit; }
+  input::placeholder { color: #79705f; }
+  /* Sistem acilir listesi kutunun disina cizildigi icin CSS almiyordu; liste
+     artik sayfanin icinde, pencere acilinca buyuyor. */
+  #pick {
+    display: flex; align-items: center; gap: 7px; max-width: 210px;
+    background: none; border: 0; border-radius: 6px; padding: 5px 7px; cursor: pointer;
+    font: 12px ui-monospace, "Cascadia Mono", Consolas, monospace; color: #79705f;
+  }
+  #pick:hover, #pick:focus-visible, #pick.open { background: #262219; color: #63b0a0; outline: none; }
+  #pick .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #pick .cyc { color: #4f483d; }
+  #list { list-style: none; margin: 0; padding: 6px; overflow-y: auto; border-top: 1px solid #2e2a23; scrollbar-width: thin; }
+  #list li {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13.5px;
+  }
+  #list li:hover { background: #262219; }
+  #list li.on { background: #262219; box-shadow: inset 2px 0 0 #63b0a0; }
+  #list li.on .who { color: #63b0a0; }
+  #list .c { font: 11px ui-monospace, Consolas, monospace; color: #79705f; }
+  body.err { border-color: #d98070; }
+  body.err .box { color: #d98070; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <span class="box" aria-hidden="true">[ ]</span>
+  <input id="box" placeholder="Aklına ne geldiyse yaz, Enter kaydeder…" aria-label="Seçili projeye satır ekle" autocomplete="off" autofocus>
+  <button id="pick" title="Proje seç (↑ ↓ ile de değişir)" aria-haspopup="listbox" aria-expanded="false">
+    <span class="cyc" aria-hidden="true">⇅</span><span class="who">inbox</span>
+  </button>
+</div>
+<ul id="list" role="listbox" hidden></ul>
+<script src="/md.js"></script>
+<script>
+const token = new URLSearchParams(location.search).get('t') || ''
+const call = (p, o = {}) => fetch('/api' + p, { ...o, headers: { 'content-type': 'application/json', 'x-notix-token': token } })
+const box = document.getElementById('box')
+const pick = document.getElementById('pick')
+// Ctrl+B/I/K ve panodan resim burada da calissin.
+MD.setToken(token)
+MD.bind(box, (p, body) => call(p, { method: 'POST', body: JSON.stringify(body) }).then((r) => r.json()), () => document.body.classList.add('err'))
+const list = document.getElementById('list')
+const who = pick.querySelector('.who')
+
+const BAR = 62, ROW = 34, ENCOK = 6
+let projects = [{ slug: 'inbox', title: 'inbox', open: 0 }]
+let i = 0
+
+// Inbox her zaman ilk sirada; yoksa ilk kayitta acilir.
+call('/projects').then((r) => r.json()).then((all) => {
+  const inbox = all.find((p) => p.slug === 'inbox')
+  projects = [inbox || { slug: 'inbox', title: 'inbox', open: 0 }, ...all.filter((p) => p.slug !== 'inbox')]
+  const son = projects.findIndex((p) => p.slug === localStorage.notixQuickTo)
+  i = son < 0 ? 0 : son
+  paint()
+}).catch(() => {})
+
+function paint() {
+  who.textContent = projects[i].title
+  localStorage.notixQuickTo = projects[i].slug
+  ;[...list.children].forEach((li, n) => li.classList.toggle('on', n === i))
+  list.children[i]?.scrollIntoView({ block: 'nearest' })
+}
+
+// Pencereyi liste kadar buyut/kucult — kutu 62px, liste altina siger.
+const grow = (h) => call('/window', { method: 'POST', body: JSON.stringify({ height: h }) }).catch(() => {})
+
+async function openList() {
+  list.replaceChildren(...projects.map((p, n) => {
+    const li = document.createElement('li')
+    li.className = n === i ? 'on' : ''
+    li.setAttribute('role', 'option')
+    const ad = document.createElement('span'); ad.className = 'who'; ad.textContent = p.title
+    const c = document.createElement('span'); c.className = 'c'; c.textContent = p.open ? `${p.open} açık` : ''
+    li.append(ad, c)
+    li.onclick = () => { i = n; paint(); closeList(); box.focus() }
+    return li
+  }))
+  const yuksek = Math.min(projects.length, ENCOK) * ROW + 12
+  list.style.maxHeight = yuksek + 'px'
+  await grow(BAR + yuksek)
+  list.hidden = false
+  pick.classList.add('open')
+  pick.setAttribute('aria-expanded', 'true')
+  paint()
+  box.focus() // odak kutuda kalsin: ok tuslari ve Enter calismaya devam etsin
+}
+
+function closeList() {
+  list.hidden = true
+  pick.classList.remove('open')
+  pick.setAttribute('aria-expanded', 'false')
+  grow(BAR)
+}
+
+const acikMi = () => !list.hidden
+pick.onclick = () => (acikMi() ? (closeList(), box.focus()) : openList())
+
+box.onkeydown = async (e) => {
+  if (e.key === 'Escape') return acikMi() ? (closeList(), box.focus()) : window.close()
+  // Listeyi acmadan proje degistir
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault()
+    i = (i + (e.key === 'ArrowDown' ? 1 : -1) + projects.length) % projects.length
+    return paint()
+  }
+  if (e.key !== 'Enter' || !box.value.trim()) return
+  box.disabled = true
+  document.body.classList.remove('err')
+  try {
+    // Inbox yoksa acilir; create idempotent, var olan dosyaya dokunmaz.
+    if (projects[i].slug === 'inbox') await call('/projects', { method: 'POST', body: JSON.stringify({ title: 'Inbox' }) })
+    const r = await call(`/projects/${projects[i].slug}/tasks`, { method: 'POST', body: JSON.stringify({ text: box.value }) })
+    if (!r.ok) throw 0
+    window.close()
+  } catch {
+    document.body.classList.add('err') // yazilan satir kutuda kalsin, kaybolmasin
+    box.disabled = false
+    box.focus()
+  }
+}
+</script>
+</body>
+</html>
