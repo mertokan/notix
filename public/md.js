@@ -3,7 +3,9 @@
 const MD = (() => {
   let token = ''
   // Kullanici metni hicbir zaman innerHTML ile basilmaz; hepsi DOM dugumu.
-  const PARCA = /(!\[[^\]]*\]\([^)\s]+\)|\[[^\]]+\]\([^)\s]+\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g
+  const PARCA = /(!\[[^\]]*\]\([^)\s]+\)|\[[^\]]+\]\([^)\s]+\)|\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|@\d{4}-\d{2}-\d{2})/g
+  // Yerel gun: toISOString UTC verir, gece yarisi civari bir gun kayardi.
+  const bugun = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10) }
   const guvenli = (u) => /^https?:\/\//i.test(u) || /^media\/[a-z0-9][a-z0-9-]*\.[a-z]+$/i.test(u)
   const src = (u) => (u.startsWith('media/') ? `/${u}?t=${encodeURIComponent(token)}` : u)
 
@@ -20,6 +22,14 @@ const MD = (() => {
       const a = document.createElement('a')
       a.href = src(m[2]); a.target = '_blank'; a.rel = 'noreferrer'; a.textContent = m[1]
       return a
+    }
+    // @2026-09-15 → tarih rozeti. Gecmis kirmizi, bugun patina, ilerisi soluk.
+    if ((m = /^@(\d{4}-\d{2}-\d{2})$/.exec(tok))) {
+      const g = bugun()
+      return Object.assign(document.createElement('span'), {
+        className: 'due' + (m[1] < g ? ' gecti' : m[1] === g ? ' bugun' : ''),
+        textContent: m[1],
+      })
     }
     if ((m = /^\*\*(.+)\*\*$/.exec(tok))) return Object.assign(document.createElement('strong'), { textContent: m[1] })
     if ((m = /^\*(.+)\*$/.exec(tok))) return Object.assign(document.createElement('em'), { textContent: m[1] })

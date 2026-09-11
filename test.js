@@ -210,3 +210,59 @@ test('surum karsilastirma: sadece daha yeni olan guncelleme sayilir', () => {
   assert.equal(newer('1.0', '0.9.9'), true)
   assert.equal(newer('0.0.9', '0.1.0'), false)
 })
+
+test('cok satirli yapistirma oldugu gibi girer, girinti korunur', () => {
+  const slug = store.create('Yapistirma')
+  store.addTask(slug, 'Sunucu kurulumu\n  - [ ] paketleri kur\n  - dns kaydi\n\nnot: staging once')
+  const lines = fs.readFileSync(path.join(store.DIR, 'yapistirma.md'), 'utf8').split('\n')
+  assert.deepEqual(lines.slice(lines.indexOf('- [ ] Sunucu kurulumu'), lines.indexOf('- [ ] Sunucu kurulumu') + 5), [
+    '- [ ] Sunucu kurulumu',
+    '  - [ ] paketleri kur',
+    '  - dns kaydi',
+    '',
+    'not: staging once',
+  ])
+  const items = store.parse(slug).items
+  assert.equal(items.find((x) => x.text === 'paketleri kur').indent, 2)
+  assert.equal(items.find((x) => x.text === '- dns kaydi').indent, 2)
+})
+
+test('satir tasima: komsu gorevle yer degistirir, arasi bozulmaz', () => {
+  const slug = store.create('Sira')
+  fs.writeFileSync(path.join(store.DIR, 'sira.md'), [
+    '# Sira',
+    '- [ ] birinci',
+    'serbest metin',
+    '- [ ] ikinci',
+    '',
+  ].join('\n'))
+  store.moveTask(slug, 3, 'up', 'ikinci')
+  assert.deepEqual(fs.readFileSync(path.join(store.DIR, 'sira.md'), 'utf8').split('\n').slice(1, 4),
+    ['- [ ] ikinci', 'serbest metin', '- [ ] birinci'])
+  store.moveTask(slug, 1, 'up', 'ikinci') // liste basi: sessizce durur
+  assert.equal(store.parse(slug).items[1].text, 'ikinci')
+  assert.throws(() => store.moveTask(slug, 1, 'down', 'baska metin'), /satir degismis/)
+})
+
+test('baska projeye tasima: kaynaktan gider, hedefe girer', () => {
+  const a = store.create('Kaynak')
+  const b = store.create('Hedef')
+  store.addTask(a, 'tasinacak is', 'sub')
+  store.moveToProject(a, store.parse(a).items.find((x) => x.text === 'tasinacak is').i, b, 'tasinacak is')
+  assert.equal(store.parse(a).items.filter((x) => x.kind === 'task').length, 0)
+  assert.deepEqual(store.parse(b).items.filter((x) => x.kind === 'task').map((x) => [x.text, x.indent]), [['tasinacak is', 0]])
+  assert.throws(() => store.moveToProject(b, 1, 'olmayan-proje', 'tasinacak is'), /hedef proje yok/)
+})
+
+test('bugun: tarihi gelmis acik isler, gelecektekiler haric', () => {
+  const slug = store.create('Tarihli')
+  store.addTask(slug, 'gecmis is @2020-01-01')
+  store.addTask(slug, 'bugunku is @2026-09-11')
+  store.addTask(slug, 'ileri is @2099-01-01')
+  store.addTask(slug, 'tarihsiz is')
+  const bitmis = store.parse(slug).items.find((x) => x.text.startsWith('gecmis'))
+  const due = store.due('2026-09-11')
+  assert.deepEqual(due.map((x) => x.date), ['2020-01-01', '2026-09-11'])
+  store.updateTask(slug, bitmis.i, { expect: bitmis.text, done: true })
+  assert.deepEqual(store.due('2026-09-11').map((x) => x.date), ['2026-09-11']) // bitmisler dusuyor
+})

@@ -16,6 +16,17 @@ function el(tag, props, ...kids) {
 }
 const $ = (id) => document.getElementById(id)
 
+// Yazma kutulari textarea: uzun satir tek satira sikisip okunmaz olmasin, saran
+// metin icinde istedigin yeri secip kopyalayabil. Enter yine kaydeder/gonderir,
+// Shift+Enter alt satir acar (cok satirli yapistirma da boyle korunur).
+const buyut = (ta) => { ta.style.height = '0'; ta.style.height = ta.scrollHeight + 'px' }
+function kutu(props, enter) {
+  const ta = el('textarea', { rows: 1, spellcheck: false, ...props })
+  ta.addEventListener('input', () => buyut(ta))
+  ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enter(ta) } })
+  return ta
+}
+
 let cur = null
 let hi = null // aramadan gelince vurgulanacak satir
 let toastT
@@ -28,8 +39,13 @@ function say(msg) {
 }
 const oops = (e) => { say(e.status === 409 ? 'Dosya arada değişmişti, tazelendi.' : 'Olmadı: ' + e.message); open_(cur) }
 
+// Yerel gun: sunucunun degil kullanicinin takvimi esas (toISOString UTC verir).
+const bugun = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10) }
+
 async function loadProjects() {
-  const [list, bin] = await Promise.all([api('/projects'), api('/trash').catch(() => [])])
+  const [list, bin, due] = await Promise.all([api('/projects'), api('/trash').catch(() => []), api('/due?d=' + bugun()).catch(() => [])])
+  $('today').querySelector('.count').textContent = due.length ? String(due.length) : ''
+  $('today').classList.toggle('clear', !due.length)
   $('projects').replaceChildren(...list.map((p) =>
     el('a', { className: 'proj' + (p.slug === cur ? ' on' : '') + (p.open ? '' : ' clear'), href: '#' + p.slug },
       el('span', { className: 'name', textContent: p.title }),
@@ -134,7 +150,8 @@ async function bellekKaydet(ta, mem) {
 
 // Ekleme satiri da markdown biliyor: Ctrl+B/I/K ve panodan resim yapistirma.
 function ekleKutusu() {
-  const i = el('input', { name: 'text', placeholder: 'Yeni satır… (**kalın**, Ctrl+V ile resim)', autocomplete: 'off', required: true })
+  const i = kutu({ name: 'text', placeholder: 'Yeni satır… (**kalın**, Ctrl+V ile resim, çok satırlı yapıştırma olduğu gibi girer)', required: true },
+    (ta) => ta.form.requestSubmit())
   MD.bind(i, post, say)
   return i
 }
@@ -156,18 +173,42 @@ function row(it, changed, ilkBaslik) {
   if (it.kind === 'heading') // ilk baslik zaten sayfanin basligi
     return ilkBaslik ? null : el('li', { className: mark('head h' + it.level) },
       ln, el('span', { className: 'box', ariaHidden: 'true', textContent: '#'.repeat(it.level) }), yazi(it), kopyala(it))
+  // Girintili satir (ic ice madde) ekranda da girintili dursun.
+  const gir = (li) => (it.indent ? (li.style.setProperty('--ind', Math.min(it.indent, 16)), li) : li)
+
   if (it.kind === 'text')
-    return it.text.trim() ? el('li', { className: mark('note') }, ln, yazi(it), kopyala(it)) : null
+    return it.text.trim() ? gir(el('li', { className: mark('note') }, ln, yazi(it), el('span', { className: 'ops' }, kopyala(it)))) : null
 
   const id = 'l' + it.i
   const tick = el('input', { type: 'checkbox', className: 'tick', id, checked: it.done, ariaLabel: it.text, onchange: () => patch(it, { done: tick.checked }) })
-  const txt = yazi(it, { onclick: () => edit(it, txt) })
-  return el('li', { className: mark('task' + (it.done ? ' done' : '')) },
+  // Metin secerken duzenlemeye girmesin: parcayi kopyalamak icin secip birakmak yetsin.
+  const txt = yazi(it, { onclick: () => getSelection().isCollapsed && edit(it, txt) })
+  return gir(el('li', { className: mark('task' + (it.done ? ' done' : '')) },
     ln, tick,
     el('label', { className: 'box', htmlFor: id, ariaHidden: 'true', textContent: it.done ? '[x]' : '[ ]' }),
     txt,
-    kopyala(it),
-    el('button', { className: 'x', textContent: '×', title: 'Satırı sil', onclick: () => del(it) }))
+    el('span', { className: 'ops' },
+      el('button', { className: 'mv', textContent: '↑', title: 'Yukarı taşı', onclick: () => patch(it, { move: 'up' }) }),
+      el('button', { className: 'mv', textContent: '↓', title: 'Aşağı taşı', onclick: () => patch(it, { move: 'down' }) }),
+      el('button', { className: 'mv', textContent: '→', title: 'Başka projeye taşı', onclick: (e) => tasi(it, e.target) }),
+      kopyala(it),
+      el('button', { className: 'x', textContent: '×', title: 'Satırı sil', onclick: () => del(it) }))))
+}
+
+// Satiri baska projeye tasi: dugmenin yerine proje listesi acilir.
+async function tasi(it, dugme) {
+  const list = await api('/projects').catch(() => [])
+  const sec = el('select', { className: 'tasi' },
+    el('option', { value: '', textContent: '→ proje' }),
+    ...list.filter((p) => p.slug !== cur).map((p) => el('option', { value: p.slug, textContent: p.title })))
+  sec.onchange = () => {
+    if (!sec.value) return open_(cur)
+    const ad = sec.options[sec.selectedIndex].textContent
+    patch(it, { to: sec.value }).then(() => say(`→ ${ad}`))
+  }
+  sec.onblur = () => open_(cur)
+  dugme.replaceWith(sec)
+  sec.focus()
 }
 
 const patch = (it, body) =>
@@ -179,15 +220,13 @@ const del = (it) => {
 }
 
 function edit(it, node) {
-  const inp = el('input', { className: 'txt edit', value: it.text })
+  const inp = kutu({ className: 'txt edit', value: it.text }, () => inp.blur())
   node.replaceWith(inp)
+  buyut(inp)
   inp.focus()
   inp.select()
   inp.onblur = () => (inp.value.trim() && inp.value !== it.text ? patch(it, { text: inp.value }) : open_(cur))
-  inp.onkeydown = (e) => {
-    if (e.key === 'Enter') inp.blur()
-    if (e.key === 'Escape') { inp.onblur = null; open_(cur) }
-  }
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Escape') { inp.onblur = null; open_(cur) } })
 }
 
 async function addTask(e) {
@@ -377,6 +416,30 @@ async function purge(b) {
 
 $('bin').onclick = showTrash
 
+/* --- bugun: tum projelerden tarihi gelmis acik isler (@YYYY-MM-DD) --- */
+async function showToday() {
+  cur = null // poll bu ekrani ezmesin
+  location.hash = ''
+  const g = bugun()
+  const hits = await api('/due?d=' + g).catch((e) => (say('Olmadı: ' + e.message), []))
+  $('main').replaceChildren(
+    el('header', {},
+      el('span', { className: 'hash', ariaHidden: 'true', textContent: '#' }),
+      el('h2', { textContent: 'Bugün' }),
+      el('span', { className: 'meta', textContent: `${g} · ${hits.length} iş` })),
+    hits.length
+      ? el('ul', { className: 'hits' }, hits.map((h) =>
+        el('li', { onclick: () => go(h.slug, h.text) },
+          el('span', { className: 'where', textContent: h.project }),
+          el('span', { className: 'box', ariaHidden: 'true', textContent: '[ ]' }),
+          el('span', { className: 'txt' }, MD.render(h.text)))))
+      : el('p', { className: 'empty', textContent: 'Tarihi gelmiş iş yok.' }),
+    el('p', { className: 'hint', textContent: 'Bir işe tarih vermek için satıra @2026-09-15 yaz. Tarihi bugün veya geçmiş olan açık işler burada toplanır — AI ajanları da aynı kuralı kullanabilir.' }))
+  loadProjects()
+}
+
+$('today').onclick = showToday
+
 /* --- disa/ice aktarma: veriyi baska makineye tasimak icin --- */
 $('exp').onclick = async () => {
   const bundle = await api('/export').catch((e) => (say('Olmadı: ' + e.message), null))
@@ -410,7 +473,7 @@ $('file').onchange = async (e) => {
 
 /* --- kisayollar --- */
 const LABEL = { quickAdd: 'Hızlı ekleme (uygulama açıkken her yerde)', find: 'Ara', add: 'Yeni satır', hideDone: 'Bitmişleri gizle/göster', help: 'Bu pencere' }
-const OPT = { openAtLogin: 'Bilgisayar açılınca başlat', autoUpdate: 'Açılışta güncelleme denetle' }
+const OPT = { openAtLogin: 'Bilgisayar açılınca başlat', autoUpdate: 'Açılışta güncelleme denetle', backup: 'Otomatik yedek (notes klasöründe git commit)' }
 let keys = {}
 let desktop = false // Electron içinde mi (masaüstü seçenekleri ancak o zaman anlamlı)
 let update = null // /api/update sonucu, yeni sürüm varsa
@@ -427,7 +490,7 @@ function accel(e) {
 
 const run = {
   find: () => find.focus(),
-  add: () => document.querySelector('.add input')?.focus(),
+  add: () => document.querySelector('.add textarea')?.focus(),
   hideDone: () => toggleDone(),
   help: () => showKeys(),
 }
@@ -506,6 +569,12 @@ const welcome = () => [
     ' — nerede olursan ol, Inbox\'a bir satır ekler.'),
 ]
 
+// Sayfa file:// baglantisi acamiyor; klasoru Electron aciyor. Tarayicida acilmaz,
+// o zaman yol panoya kopyalanir.
+const openDir = (dir) => api('/open', { method: 'POST' })
+  .then((r) => r.ok || navigator.clipboard.writeText(dir).then(() => say('Klasör açılamadı, yol kopyalandı'), () => say(dir)))
+  .catch((e) => say('Olmadı: ' + e.message))
+
 addEventListener('hashchange', () => open_(decodeURIComponent(location.hash.slice(1))))
 
 // AI veya editör dosyayı değiştirirse ekran kendiliğinden tazelensin.
@@ -516,7 +585,7 @@ setInterval(() => {
 
 api('/info')
   .then(({ dir, version }) => { keys.version = version; $('where').replaceChildren(
-    el('a', { href: 'file:///' + dir.replace(/\\/g, '/'), target: '_blank', title: 'Klasörü aç', textContent: dir })) })
+    el('button', { className: 'link', title: 'Klasörü aç', textContent: dir, onclick: () => openDir(dir) })) })
   .catch(() => {})
 
 api('/config').then((c) => {

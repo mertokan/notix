@@ -14,6 +14,7 @@ ve ![resim](media/dosya.png) uygulamada da öyle görünür.
 - [ ] yapılacak iş
 - [x] bitmiş iş
   - [ ] girintili alt iş (girinti korunur)
+- [ ] tarihli iş @2026-09-15
 
 ## Bellek
 
@@ -22,6 +23,8 @@ Projenin hafızası. Uygulamada en üstte ayrı bir panelde görünür.
 
 Kurallar:
 - `- [ ]` → açık, `- [x]` → bitmiş. Başka bir işaret kullanma.
+- Tarih = satırın içinde `@YYYY-MM-DD`. Tarihi bugün veya geçmiş olan açık işler
+  uygulamanın "Bugün" listesinde toplanır. Başka bir tarih biçimi kullanma.
 - **Satır bazlı düzenle.** Tanımadığın satırları (başlık, boş satır, serbest metin) aynen bırak.
 - Bir işi bitirdiğinde satırı silme, sadece `[ ]` → `[x]` yap. Geçmiş kaybolmasın.
 - Yeni iş = dosyanın sonuna yeni bir `- [ ]` satırı. Dosyanın sonunda `## Bellek`
@@ -60,9 +63,10 @@ Sunucu çalışıyorsa (`npm run server`, sadece `127.0.0.1:4321`), her istekte
 | `POST /api/projects` | `{title}` |
 | `PATCH /api/projects/:slug` | `{title}` — başlık satırı + dosya adı değişir |
 | `POST /api/projects/:slug/tasks` | `{text, kind?}` — `kind`: `task` (varsayılan), `sub` (girintili), `note` (serbest metin) |
-| `PATCH /api/projects/:slug/tasks/:i` | `{expect, done?, text?}` |
-| `DELETE /api/projects/:slug/tasks/:i?expect=…` | |
+| `PATCH /api/projects/:slug/tasks/:i` | `{expect, done?, text?}` — `{expect, move:"up"\|"down"}` sırala, `{expect, to:"hedef-slug"}` başka projeye taşı |
 | `GET /api/search?q=` | tüm projelerde satır ara (en az 2 harf) |
+| `GET /api/due?d=YYYY-MM-DD` | tarihi o güne kadar gelmiş açık işler (tüm projeler) |
+| `DELETE /api/projects/:slug/tasks/:i?expect=…` | |
 | `GET /api/export` | `{version, files: {slug: içerik}}` |
 | `POST /api/import` | `{files: {slug: içerik}}` — var olanın eskisi `.trash`'e kopyalanır |
 | `GET/PUT /api/config` | kısayollar |

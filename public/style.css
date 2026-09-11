@@ -75,8 +75,9 @@ button.proj { width: 100%; background: none; font: inherit; font-size: 14px; tex
 
 #info { display: flex; flex-direction: column; gap: 6px; font: 11px var(--mono); color: var(--faint); }
 #where { word-break: break-all; }
-#info a { color: inherit; text-decoration: none; }
-#info a:hover { color: var(--patina); }
+#info a, #where .link { color: inherit; text-decoration: none; }
+#info a:hover, #where .link:hover { color: var(--patina); background: none; }
+#where .link { font: inherit; padding: 0; text-align: left; }
 #info .data { display: flex; gap: 4px; margin: 0 -7px; }
 
 /* --- dosya gorunumu --- */
@@ -92,14 +93,16 @@ main header input.edit { flex: 1; font: 600 21px/1.2 var(--sans); }
 .meta { flex: 1; font: 12px var(--mono); color: var(--dim); }
 
 .tasks, .hits { list-style: none; margin: 0; padding: 0; }
+/* --ind: satirin dosyadaki girintisi (bosluk sayisi) — ic ice maddeler burada da girintili. */
 .tasks li {
-  position: relative; display: grid; grid-template-columns: 26px 27px 1fr max-content max-content;
+  position: relative; display: grid; grid-template-columns: 26px calc(27px + var(--ind, 0) * 7px) 1fr max-content;
   align-items: baseline; gap: 0 10px; padding: 5px 8px; border-radius: 6px;
 }
 .task:hover { background: var(--panel); }
 .ln { font: 11px/1.7 var(--mono); color: var(--faint); text-align: right; user-select: none; }
 .tick { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .box { font: 14px/1.55 var(--mono); color: var(--dim); cursor: pointer; user-select: none; white-space: pre; }
+.tasks .box { margin-left: calc(var(--ind, 0) * 7px); } /* girintili maddede kutu da kaysin */
 .task:hover .box { color: var(--vellum); }
 .task.done .box { color: var(--patina); }
 .tick:focus-visible + .box { outline: 2px solid var(--patina); outline-offset: 2px; border-radius: 3px; }
@@ -109,11 +112,18 @@ main header input.edit { flex: 1; font: 600 21px/1.2 var(--sans); }
   text-decoration-color: var(--faint); text-decoration-thickness: 1px;
 }
 .note .txt { color: var(--dim); font-size: 14px; cursor: default; }
-input.edit { padding: 1px 6px; margin: -1px 0; background: var(--ink); border: 1px solid var(--patina); border-radius: 4px; outline: 0; }
-.x, .cp { background: none; color: var(--faint); padding: 0 6px; line-height: 1; opacity: 0; }
-.cp { font: 13px var(--mono); }
-.tasks li:hover .x, .tasks li:hover .cp, .x:focus-visible, .cp:focus-visible { opacity: 1; }
+/* Duzenleme ve ekleme kutulari textarea: metin sarar, satir tek satira sikismaz. */
+.edit { padding: 1px 6px; margin: -1px 0; background: var(--ink); border: 1px solid var(--patina); border-radius: 4px; outline: 0; }
+.add textarea, textarea.edit { font: inherit; line-height: 1.55; resize: none; overflow: hidden; }
+textarea.edit { display: block; width: 100%; }
+/* Satir islemleri tek hucrede: uzerine gelince gorunur. */
+.ops { display: flex; align-items: center; gap: 2px; }
+.ops button { background: none; color: var(--faint); padding: 0 6px; line-height: 1; opacity: 0; }
+.cp, .mv { font: 13px var(--mono); }
+.tasks li:hover .ops button, .ops button:focus-visible { opacity: 1; }
+.mv:hover { color: var(--patina); background: none; }
 .x:hover { color: var(--danger); background: none; }
+select.tasi { background: var(--ink); border: 1px solid var(--patina); border-radius: 4px; padding: 1px 4px; font: 12px var(--mono); }
 .cp:hover { color: var(--patina); background: none; }
 
 /* --- markdown: satir icinde --- */
@@ -121,6 +131,11 @@ input.edit { padding: 1px 6px; margin: -1px 0; background: var(--ink); border: 1
 .txt em { font-style: italic; }
 .txt code { font: 12.5px var(--mono); background: var(--ink); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 5px; }
 .txt a { color: var(--patina); text-decoration: none; }
+/* @2026-09-15 → tarih rozeti; gecmis kirmizi, bugun patina. */
+.due { font: 11.5px var(--mono); color: var(--faint); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
+.due.bugun { color: var(--patina); border-color: #35544e; }
+.due.gecti { color: var(--danger); border-color: #4a2f29; }
+.task.done .due { color: var(--faint); border-color: var(--rule); }
 .txt a:hover { text-decoration: underline; }
 .txt img { display: block; max-width: 100%; max-height: 280px; margin: 6px 0 2px; border: 1px solid var(--rule); border-radius: 6px; }
 .head { margin-top: 12px; }
@@ -170,7 +185,7 @@ body.hide-done .task.done { display: none; }
 }
 select.box { appearance: none; background: none; border: 0; padding: 0; color: var(--faint); text-align: center; }
 .add:focus-within select.box, select.box:hover { color: var(--patina); }
-.add input { grid-column: 3; background: none; border: 0; outline: 0; padding: 2px 0; }
+.add textarea { grid-column: 3; background: none; border: 0; outline: 0; padding: 2px 0; }
 .add button { background: none; color: var(--faint); font: 12px var(--mono); }
 .add button:hover, .add:focus-within button { background: none; color: var(--patina); }
 
@@ -244,8 +259,9 @@ dialog .opt { display: block; margin: 6px 0; cursor: pointer; }
   #info { display: none; }
   main { padding: 16px 16px 64px; }
   .ln { display: none; }
-  .tasks li, .add { grid-template-columns: 27px 1fr max-content max-content; }
-  .txt, .add input { grid-column: 2; }
+  .tasks li { grid-template-columns: calc(27px + var(--ind, 0) * 7px) 1fr max-content; }
+  .add { grid-template-columns: 27px 1fr max-content max-content; }
+  .txt, .add textarea { grid-column: 2; }
   .hits li { grid-template-columns: 27px 1fr; }
   .hits .where { display: none; }
   .bin li { grid-template-columns: 1fr max-content max-content; }

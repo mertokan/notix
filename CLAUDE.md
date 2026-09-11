@@ -59,6 +59,15 @@ notes/<slug>.md  →  store.js  →  server.js (127.0.0.1)  →  public/ (vanill
   Kısayollar `.notix-config.json`'da; `PUT /api/config` sadece bilinen alanları
   yazar ve `onConfig` ile electron.js'e haber verir — global kısayol yeniden
   başlatmadan yeniden bağlanır.
+- **Otomatik yedek**: `notes/` **kendi** git deposu (`notes/.git`). Her yazımdan
+  ~20sn sonra tek commit — geçmiş/geri alma bedava. Üst depoya bulaşmasın diye
+  `rev-parse` ile değil `notes/.git` var mı diye bakılır; yoksa `git init`. Git
+  yoksa sessizce atlanır, ayarlardan (`backup`) kapatılır.
+- **Tarih**: satır içinde `@YYYY-MM-DD`, ayrı alan yok — dosya yine düz markdown,
+  ajanlar da aynı kuralı yazıyor. `GET /api/due?d=` tarihi gelmiş açık işleri verir
+  (`d` istemcinin yerel günü; sunucu UTC'den gün kaydırmasın diye).
+- **Satır taşıma**: `PATCH …/tasks/:i` gövdesinde `move` (komşu görevle yer değiştir,
+  aradaki metin/başlık yerinde kalır) ya da `to` (başka projeye taşı).
 - **Veri taşıma**: `GET /api/export` tüm dosyaları JSON olarak verir, `POST /api/import`
   geri yazar. İçe aktarma üzerine yazmadan önce eskisini `.trash`'e kopyalar —
   "silme yok" kuralı burada da geçerli.
@@ -74,6 +83,10 @@ notes/<slug>.md  →  store.js  →  server.js (127.0.0.1)  →  public/ (vanill
 - **public/md.js** — markdown'ın satır içinde gösterimi + yazma kısayolları; iki
   sayfa da (ana pencere, hızlı ekleme) aynı dosyayı `<script>` ile alır. Bağ/resim
   adresleri `http(s)` veya `media/…` değilse düz metin kalır (`javascript:` geçmez).
+- **electron.js** — tepside yaşar: pencere `close`'da yok edilmez, gizlenir
+  (`window-all-closed` yok) — yoksa pencere kapanınca global hızlı ekleme kısayolu
+  da ölüyordu. Çıkış sadece tepsi menüsünden. Tepsi ikonu `public/icon.png`
+  (nativeImage svg okumuyor), aynı dosya kurulumun ikonu.
 - **electron.js** — tek örnek kilidi (ikinci açılış porta çakışmasın), menü yok
   (Alt gizli menüyü açıp "Çıkış"ı tetikleyebiliyordu), `nativeTheme.themeSource='dark'`.
   Hızlı ekleme kutusundaki proje listesi sayfanın içinde: sistemin açılır menüsü

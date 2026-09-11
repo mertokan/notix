@@ -1,6 +1,6 @@
 {
   "name": "notix",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Local-first proje notlari / yapilacaklar. Kaynak = duz markdown, AI'lar dogrudan duzenler.",
   "main": "electron.js",
@@ -26,7 +26,8 @@
       "public/**"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "public/icon.png"
     },
     "nsis": {
       "oneClick": false,

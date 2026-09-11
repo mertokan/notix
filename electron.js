@@ -1,5 +1,7 @@
-const { app, BrowserWindow, Menu, globalShortcut, nativeTheme, shell } = require('electron')
+const { app, BrowserWindow, Menu, Tray, globalShortcut, nativeImage, nativeTheme, shell } = require('electron')
 const path = require('node:path')
+
+const ICON = path.join(__dirname, 'public', 'icon.png')
 
 // Kurulu uygulamada kaynak klasoru salt okunur (app.asar): token/ayar userData'ya,
 // notlar Belgeler/Notix'e. Gelistirirken (npm start) her sey repo icinde kalir.
@@ -7,7 +9,7 @@ if (app.isPackaged) {
   process.env.NOTIX_HOME ||= app.getPath('userData')
   process.env.NOTIX_DIR ||= path.join(app.getPath('documents'), 'Notix')
 }
-const { start, PORT, TOKEN, config, onConfig, onWindow } = require('./server')
+const { start, PORT, TOKEN, config, onConfig, onWindow, onOpen } = require('./server')
 
 // Acilir listeler/kaydirma cubuklari Chromium'un kendi ciziminde: sayfa CSS'i
 // oraya gecmiyor, tema buradan zorlanmali.
@@ -20,11 +22,13 @@ Menu.setApplicationMenu(null)
 // yeni ornek cikar, var olanin penceresini one getirir.
 let main = null
 if (!app.requestSingleInstanceLock()) { app.quit(); return }
-app.on('second-instance', () => {
+function goster() {
   if (!main) return
   if (main.isMinimized()) main.restore()
+  main.show()
   main.focus()
-})
+}
+app.on('second-instance', goster)
 
 start()
 
@@ -51,13 +55,33 @@ onWindow((h) => {
   return true
 })
 
+// Sol alttaki yol yazisina basinca not klasoru Gezgin'de acilir.
+onOpen((dir) => (shell.openPath(dir), true))
+
+// Pencereyi kapatmak uygulamayi kapatmasin: tepside kalir, global kisayol yasar.
+// Cikis sadece tepsi menusunden.
+let tray = null
+let cikiyor = false
+app.on('before-quit', () => { cikiyor = true })
+
 app.whenReady().then(() => {
   const win = main = new BrowserWindow({
     width: 1100, height: 780, minWidth: 420,
-    title: 'Notix', backgroundColor: '#191713',
+    title: 'Notix', backgroundColor: '#191713', icon: ICON,
   })
   win.loadURL(`http://127.0.0.1:${PORT}/?t=${TOKEN}`)
   win.webContents.setWindowOpenHandler(({ url }) => (shell.openExternal(url), { action: 'deny' }))
+  win.on('close', (e) => { if (!cikiyor) { e.preventDefault(); win.hide() } })
+
+  tray = new Tray(nativeImage.createFromPath(ICON).resize({ width: 16, height: 16 }))
+  tray.setToolTip('Notix')
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Notix', click: goster },
+    { label: 'Hızlı ekle', click: quickAdd },
+    { type: 'separator' },
+    { label: 'Çık', click: () => app.quit() },
+  ]))
+  tray.on('click', goster)
 
   // Kisayol ayarlardan degisince yeniden baglanir; false donerse baska uygulama tutuyor.
   const bindQuick = (accel) => (globalShortcut.unregisterAll(), !!accel && globalShortcut.register(accel, quickAdd))
@@ -71,4 +95,4 @@ app.whenReady().then(() => {
   onConfig(apply)
 })
 
-app.on('window-all-closed', () => app.quit())
+// window-all-closed yok: ana pencere kapanmiyor, gizleniyor. Cikis tepsiden.

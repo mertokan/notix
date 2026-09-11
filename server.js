@@ -24,8 +24,9 @@ function readToken() {
 // Kisayollar. Global olani (quickAdd) Electron kaydeder, gerisi tarayici tarafinda.
 const CFG = path.join(HOME, '.notix-config.json')
 const KEYS = { quickAdd: 'Control+Alt+N', find: 'Control+K', add: 'N', hideDone: 'H', help: '?' }
-// Masaustu secenekleri: acilista baslat (Electron setLoginItemSettings), guncelleme denetimi.
-const OPTS = { openAtLogin: false, autoUpdate: true }
+// Masaustu secenekleri: acilista baslat (Electron setLoginItemSettings), guncelleme
+// denetimi, otomatik yedek (notes/ icinde git commit).
+const OPTS = { openAtLogin: false, autoUpdate: true, backup: true }
 const DEF = { ...KEYS, ...OPTS }
 const config = () => { try { return { ...DEF, ...JSON.parse(fs.readFileSync(CFG, 'utf8')) } } catch { return { ...DEF } } }
 function writeConfig(body) {
@@ -33,8 +34,10 @@ function writeConfig(body) {
   for (const k of Object.keys(KEYS)) next[k] = typeof body[k] === 'string' && body[k].trim() && body[k].length <= 40 ? body[k].trim() : KEYS[k]
   for (const k of Object.keys(OPTS)) next[k] = typeof body[k] === 'boolean' ? body[k] : OPTS[k]
   fs.writeFileSync(CFG, JSON.stringify(next, null, 2))
+  store.setBackup(next.backup)
   return next
 }
+store.setBackup(config().backup)
 let configHook = null // electron.js global kisayoyu/acilista baslatmayi yeniden uygulasin diye
 const onConfig = (fn) => (configHook = fn)
 
@@ -56,7 +59,14 @@ async function checkUpdate() {
 let windowHook = null
 const onWindow = (fn) => (windowHook = fn)
 
+// Not klasorunu isletim sisteminde acmak. Sayfa file:// baglantisi acamiyor
+// (Chromium http sayfasindan engelliyor), Electron shell.openPath yapiyor.
+let openHook = null
+const onOpen = (fn) => (openHook = fn)
+
 const fail = (code, msg) => Object.assign(new Error(msg), { code })
+// Yerel gun (toISOString UTC verir, gece yarisi civari yanlis gune dusebilir).
+const yerelBugun = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10) }
 
 function send(res, code, body, type = 'application/json') {
   res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store' })
@@ -78,6 +88,8 @@ async function api(req, res, url) {
   if (kind === 'info') return send(res, 200, { dir: store.DIR, version: VERSION })
   if (kind === 'update') return send(res, 200, await checkUpdate())
   if (kind === 'search') return send(res, 200, store.search(url.searchParams.get('q') || ''))
+  // Bugun = istemcinin yerel tarihi (d=YYYY-MM-DD); verilmezse sunucununki.
+  if (kind === 'due') return send(res, 200, store.due(/^\d{4}-\d{2}-\d{2}$/.test(url.searchParams.get('d') || '') ? url.searchParams.get('d') : yerelBugun()))
   if (kind === 'export') return send(res, 200, { version: 1, files: store.exportAll() })
   if (kind === 'import') {
     if (m !== 'POST') return send(res, 405, { error: 'yontem desteklenmiyor' })
@@ -90,6 +102,10 @@ async function api(req, res, url) {
     if (m !== 'POST') return send(res, 405, { error: 'yontem desteklenmiyor' })
     const b = await readBody(req)
     return send(res, 200, { path: store.saveMedia(b.name, b.data) })
+  }
+  if (kind === 'open') {
+    if (m !== 'POST') return send(res, 405, { error: 'yontem desteklenmiyor' })
+    return send(res, 200, { ok: !!openHook && openHook(store.DIR) })
   }
   if (kind === 'window') {
     if (m !== 'POST') return send(res, 405, { error: 'yontem desteklenmiyor' })
@@ -125,7 +141,14 @@ async function api(req, res, url) {
     if (m === 'PUT') { const b = await readBody(req); store.write(slug, b.text, b.expect); return send(res, 200, store.parse(slug)) }
   } else if (sub === 'tasks') {
     if (m === 'POST') { const b = await readBody(req); store.addTask(slug, b.text, b.kind); return send(res, 200, store.parse(slug)) }
-    if (m === 'PATCH') { store.updateTask(slug, Number(idx), await readBody(req)); return send(res, 200, store.parse(slug)) }
+    // Ayni yol: `move` yukari/asagi, `to` baska projeye, gerisi satir duzenleme.
+    if (m === 'PATCH') {
+      const b = await readBody(req)
+      if (b.move) store.moveTask(slug, Number(idx), b.move === 'up' ? 'up' : 'down', b.expect)
+      else if (b.to) store.moveToProject(slug, Number(idx), b.to, b.expect)
+      else store.updateTask(slug, Number(idx), b)
+      return send(res, 200, store.parse(slug))
+    }
     if (m === 'DELETE') { store.updateTask(slug, Number(idx), { expect, remove: true }); return send(res, 200, store.parse(slug)) }
   }
   send(res, 405, { error: 'yontem desteklenmiyor' })
@@ -161,5 +184,5 @@ function start() {
     console.log(`notix: http://127.0.0.1:${PORT}/?t=${TOKEN}`))
 }
 
-module.exports = { start, PORT, TOKEN, config, onConfig, onWindow, newer }
+module.exports = { start, PORT, TOKEN, config, onConfig, onWindow, onOpen, newer }
 if (require.main === module) start()

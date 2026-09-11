@@ -2,10 +2,12 @@
 // boylece AI'in/kullanicinin elle yazdigi her sey aynen korunur.
 const fs = require('node:fs')
 const path = require('node:path')
+const { execFile } = require('node:child_process')
 
 const DIR = process.env.NOTIX_DIR || path.join(__dirname, 'notes')
 const TRASH = path.join(DIR, '.trash')
 const TASK = /^(\s*)- \[( |x|X)\] ?(.*)$/
+const TARIH = /@(\d{4}-\d{2}-\d{2})/ // satir icinde tarih: "- [ ] fatura @2026-09-15"
 
 const bad = (code, msg) => Object.assign(new Error(msg), { code })
 // Dosya adlari ASCII kalsin ama "Ev İşleri" → ev-isleri olsun, ev-i-leri degil.
@@ -19,16 +21,42 @@ function file(slug) {
   return path.join(DIR, slug + '.md')
 }
 
+// --- otomatik yedek: notes/ kendi git deposu ---
+// Her degisiklikten bir sure sonra tek commit atar; gecmis, geri alma ve (uzak
+// depo eklersen) yedek bedava gelir. Git yoksa sessizce atlanir, uygulama calisir.
+// Ust depoya bulasmasin diye hep notes/.git kullanilir (yoksa once init edilir).
+let yedekAcik = true
+let yedekT = null
+const BEKLE = Number(process.env.NOTIX_BACKUP_MS || 20000)
+const setBackup = (on) => { yedekAcik = !!on; if (!on) clearTimeout(yedekT) }
+const git = (args, sonra) => execFile('git', ['-C', DIR, ...args], { windowsHide: true }, (e) => sonra && sonra(e))
+// Commit mesaji yerel saatle (toISOString UTC verir, log okunmaz olurdu).
+const damga = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 16).replace('T', ' ') }
+
+function yedekle() {
+  if (!yedekAcik) return
+  clearTimeout(yedekT)
+  yedekT = setTimeout(() => {
+    const isle = () => git(['add', '-A'], (e) =>
+      e || git(['-c', 'user.name=Notix', '-c', 'user.email=notix@local', 'commit', '-q', '-m', damga()]))
+    fs.existsSync(path.join(DIR, '.git')) ? isle() : git(['init', '-q'], (e) => e || isle())
+  }, BEKLE)
+  yedekT.unref && yedekT.unref() // yedek bekliyor diye process ayakta kalmasin
+}
+
 const readLines = (slug) => fs.readFileSync(file(slug), 'utf8').split(/\r?\n/)
-const writeLines = (slug, lines) => fs.writeFileSync(file(slug), lines.join('\n'))
+const writeLines = (slug, lines) => { fs.writeFileSync(file(slug), lines.join('\n')); yedekle() }
+
+// Girinti = ic ice madde. Ekranda da girintili gorunsun diye disari veriliyor.
+const girinti = (s) => /^[\t ]*/.exec(s)[0].replace(/\t/g, '  ').length
 
 function parse(slug) {
   const items = readLines(slug).map((raw, i) => {
     const m = TASK.exec(raw)
-    if (m) return { i, kind: 'task', done: m[2] !== ' ', text: m[3] }
+    if (m) return { i, kind: 'task', done: m[2] !== ' ', text: m[3], indent: girinti(m[1]) }
     const h = /^(#{1,6}) (.*)$/.exec(raw)
     if (h) return { i, kind: 'heading', level: h[1].length, text: h[2] }
-    return { i, kind: 'text', text: raw }
+    return { i, kind: 'text', text: raw.trim(), indent: girinti(raw) }
   })
   return { slug, title: items.find((x) => x.kind === 'heading')?.text || slug, items }
 }
@@ -76,40 +104,95 @@ function restore(name) {
   for (let n = 2; fs.existsSync(file(slug)); n++) slug = `${base}-${n}`
   fs.mkdirSync(DIR, { recursive: true })
   fs.renameSync(from, file(slug))
+  yedekle()
   return slug
 }
 
-const purge = (name) => fs.unlinkSync(trashPath(name)) // uygulamadaki tek gercek silme
+const purge = (name) => { fs.unlinkSync(trashPath(name)); yedekle() } // uygulamadaki tek gercek silme
 
 function create(title) {
   const slug = slugify(title)
   if (!slug) throw bad(400, 'baslik bos')
   fs.mkdirSync(DIR, { recursive: true })
-  if (!fs.existsSync(file(slug))) fs.writeFileSync(file(slug), `# ${String(title).trim()}\n\n`)
+  if (!fs.existsSync(file(slug))) { fs.writeFileSync(file(slug), `# ${String(title).trim()}\n\n`); yedekle() }
   return slug
 }
 
 function remove(slug) {
   fs.mkdirSync(TRASH, { recursive: true })
   fs.renameSync(file(slug), path.join(TRASH, `${slug}-${Date.now()}.md`)) // silme yok, tasima
+  yedekle()
 }
 
 // kind: 'task' (varsayilan) | 'sub' (girintili alt is) | 'note' (serbest metin)
 function addTask(slug, text, kind) {
-  text = String(text).replace(/[\r\n]+/g, ' ').trim()
-  if (!text) throw bad(400, 'bos gorev')
+  // Cok satirli yapistirma kopyalandigi gibi girsin: ilk satir secilen turu alir,
+  // gerisi oldugu gibi yazilir (girinti, alt maddeler, aradaki bos satirlar durur).
+  const yeni = String(text).replace(/\r/g, '').split('\n').map((l) => l.replace(/\s+$/, ''))
+  while (yeni.length && !yeni[0]) yeni.shift()
+  while (yeni.length && !yeni[yeni.length - 1]) yeni.pop()
+  if (!yeni.length) throw bad(400, 'bos gorev')
+  const bas = yeni[0].trim()
+  yeni[0] = kind === 'note' ? bas : `${kind === 'sub' ? '  ' : ''}- [ ] ${bas}`
+  ekle(slug, yeni)
+}
+
+// Satirlari dosyaya koyar: bellek bolumu varsa onun ustune, yoksa sona.
+function ekle(slug, yeni) {
   const lines = readLines(slug)
-  const satir = kind === 'note' ? text : `${kind === 'sub' ? '  ' : ''}- [ ] ${text}`
   const bellek = memRange(lines)
-  if (bellek) { // bellek en altta duruyor, yeni satir onun ustune
+  if (bellek) {
     let i = bellek.bas
     while (i > 0 && !lines[i - 1].trim()) i--
-    lines.splice(i, 0, satir)
+    lines.splice(i, 0, ...yeni)
   } else {
     while (lines.length && !lines[lines.length - 1].trim()) lines.pop()
-    lines.push(satir, '')
+    lines.push(...yeni, '')
   }
   writeLines(slug, lines)
+}
+
+// Satirin yerini bulup `expect` ile dogrular (tasima islemlerinin ortak girisi).
+function gorevSatiri(lines, i, expect) {
+  const m = TASK.exec(lines[i] ?? '')
+  if (!m || (expect != null && m[3] !== expect)) throw bad(409, 'satir degismis')
+  return m
+}
+
+// Komsu gorev satiriyla yer degistirir; aradaki baslik/serbest metin yerinde kalir.
+// ponytail: alt maddeleri birlikte tasimaz — gerekirse blok tasimaya cevrilir.
+function moveTask(slug, i, dir, expect) {
+  const lines = readLines(slug)
+  gorevSatiri(lines, i, expect)
+  const adim = dir === 'up' ? -1 : 1
+  let j = i + adim
+  while (j >= 0 && j < lines.length && !TASK.test(lines[j])) j += adim
+  if (j < 0 || j >= lines.length) return // listenin ucu, yapacak bir sey yok
+  ;[lines[i], lines[j]] = [lines[j], lines[i]]
+  writeLines(slug, lines)
+}
+
+// Satiri baska projeye tasir: kaynaktan silinir, hedefe ust seviye is olarak girer.
+function moveToProject(slug, i, hedef, expect) {
+  if (hedef === slug) throw bad(400, 'ayni proje')
+  if (!fs.existsSync(file(hedef))) throw bad(404, 'hedef proje yok')
+  const lines = readLines(slug)
+  gorevSatiri(lines, i, expect)
+  const satir = lines[i].trimStart()
+  lines.splice(i, 1)
+  writeLines(slug, lines)
+  ekle(hedef, [satir])
+  return hedef
+}
+
+// Tarihi gecmis/bugun olan acik isler — tum projelerden, "Bugun" gorunumu icin.
+function due(bugun) {
+  return list().flatMap(({ slug, title }) =>
+    parse(slug).items
+      .filter((x) => x.kind === 'task' && !x.done && TARIH.test(x.text))
+      .map((x) => ({ slug, project: title, i: x.i, text: x.text, date: TARIH.exec(x.text)[1] })))
+    .filter((x) => x.date <= bugun)
+    .sort((a, b) => a.date.localeCompare(b.date))
 }
 
 // Basligi ve dosya adini degistirir; geri kalan satirlara dokunmaz.
@@ -123,7 +206,7 @@ function rename(slug, title) {
   if (i < 0) lines.unshift(`# ${t}`)
   else lines[i] = lines[i].replace(/^(#{1,6}) .*/, (_, h) => `${h} ${t}`)
   writeLines(slug, lines)
-  if (next !== slug) fs.renameSync(file(slug), file(next))
+  if (next !== slug) { fs.renameSync(file(slug), file(next)); yedekle() }
   return next
 }
 
@@ -156,6 +239,7 @@ function importFile(slug, text) {
     fs.copyFileSync(f, path.join(TRASH, `${s}-${Date.now()}.md`))
   }
   fs.writeFileSync(f, text.replace(/\r\n/g, '\n'))
+  yedekle()
   return { slug: s, replaced }
 }
 
@@ -213,6 +297,7 @@ function write(slug, text, expect) {
   if (typeof text !== 'string') throw bad(400, 'icerik metin olmali')
   if (expect != null && read(slug) !== expect) throw bad(409, 'dosya arada degismis')
   fs.writeFileSync(file(slug), text.replace(/\r\n/g, '\n'))
+  yedekle()
 }
 
 // --- resimler: notes/media/ ---
@@ -228,6 +313,7 @@ function saveMedia(name, base64) {
   fs.mkdirSync(MEDIA, { recursive: true })
   const f = `${slugify(String(name).replace(/\.[^.]+$/, '')) || 'resim'}-${Date.now()}.${ext}`
   fs.writeFileSync(path.join(MEDIA, f), buf)
+  yedekle()
   return `media/${f}`
 }
 
@@ -249,4 +335,4 @@ function updateTask(slug, i, { expect, done, text, remove: rm }) {
   writeLines(slug, lines)
 }
 
-module.exports = { DIR, list, parse, read, write, memory, setMemory, create, remove, rename, addTask, updateTask, search, exportAll, importFile, trash, restore, purge, saveMedia, mediaFile, slugify }
+module.exports = { DIR, list, parse, read, write, memory, setMemory, create, remove, rename, addTask, updateTask, moveTask, moveToProject, due, search, exportAll, importFile, trash, restore, purge, saveMedia, mediaFile, slugify, setBackup }

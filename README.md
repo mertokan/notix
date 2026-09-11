@@ -26,11 +26,27 @@ npm run dist         # Windows kurulum dosyası → dist/Notix Setup x.y.z.exe
 | `NOTIX_UPDATE_URL` | güncelleme denetimi için son sürüm JSON'u (varsayılan GitHub releases API) |
 | `NOTIX_PORT` | varsayılan `4321` |
 | `NOTIX_TOKEN` | varsayılan: `.notix-token` içinde otomatik üretilir |
+| `NOTIX_BACKUP_MS` | otomatik yedek bekleme süresi, varsayılan `20000` |
+
+## Pencere ve tepsi
+
+Pencereyi kapatmak uygulamayı kapatmaz — tepsiye iner, böylece hızlı ekleme
+kısayolu (`Control+Alt+N`) çalışmaya devam eder. Çıkış tepsi menüsünden.
+
+## Tarih
+
+Bir işe tarih vermek için satırın içine `@YYYY-MM-DD` yaz:
+`- [ ] fatura öde @2026-09-15`. Tarihi bugün veya geçmiş olan açık işler soldaki
+**Bugün** listesinde toplanır. AI ajanları da aynı kuralı kullanır → [AGENTS.md](AGENTS.md).
 
 ## Yedek
 
-`notes/` klasörünü git'e commit'le — geçmiş + yedek bedava. Silinen projeler
-`notes/.trash/` altına taşınır, gerçekten silinmez.
+Not klasörü kendi git deposudur: her değişiklikten ~20 sn sonra tek commit atılır,
+geçmiş ve geri alma bedava gelir (`git -C notes log`, `git -C notes checkout …`).
+Uzak depo eklersen (`git -C notes remote add …`) yedek de olur. Kapatmak için
+⌨ penceresindeki "Otomatik yedek". Git kurulu değilse sessizce atlanır.
+
+Silinen projeler `notes/.trash/` altına taşınır, gerçekten silinmez.
 
 ## Sonraya bırakılanlar
 
