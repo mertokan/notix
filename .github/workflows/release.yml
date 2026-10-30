@@ -1,0 +1,50 @@
+name: release
+# v* tag'i: uc platformda derleyip GitHub Releases'a yukler (package.json build.publish).
+# PR/push: sadece testler.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm test
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm test
+      - run: npx electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Imzalama istege bagli: secret yoksa imzasiz derlenir.
+          # Windows: CSC_LINK (base64 .pfx) + CSC_KEY_PASSWORD, ya da Azure Trusted Signing
+          #   (AZURE_TENANT_ID/AZURE_CLIENT_ID/AZURE_CLIENT_SECRET + package.json win.azureSignOptions).
+          # mac: CSC_LINK + CSC_KEY_PASSWORD (Developer ID .p12), noter icin APPLE_ID,
+          #   APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Sertifika yoksa mac anahtar zincirinde aramasin (yoksa hata verir).
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
