@@ -1,7 +1,8 @@
 {
   "name": "notix",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
+  "license": "MIT",
   "description": "Local-first proje notlari / yapilacaklar. Kaynak = duz markdown, AI'lar dogrudan duzenler.",
   "main": "electron.js",
   "scripts": {

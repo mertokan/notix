@@ -3,6 +3,8 @@
 [English](README.md) · **Türkçe**
 
 Proje notları / yapılacaklar. Masaüstü uygulaması, tamamen local, hesap yok.
+![Demo](docs/demo.gif)
+
 Kaynak veri **`notes/<proje>.md`** — düz markdown, `- [ ]` / `- [x]`.
 Dolayısıyla AI ajanları (Claude Code vb.) hiçbir entegrasyon olmadan listeyi
 okuyup işleri işaretleyebilir → [AGENTS.md](AGENTS.md).
@@ -67,3 +69,7 @@ istemcinin `mcpServers` ayarına yapıştır. Elle:
 - **Mobil**: hesap/bulut olmadan ev dışından erişilemediği için ertelendi.
   Eklenince: sunucuyu `0.0.0.0`'a bağla + PWA manifest'i geri koy (LAN içi),
   ya da gerçek senkron istiyorsan bir hesap katmanı.
+
+## Lisans
+
+[MIT](LICENSE)

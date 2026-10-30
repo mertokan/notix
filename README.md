@@ -10,7 +10,7 @@ choose. That means Claude Code, Cursor, Codex or any agent with file access can 
 your list and tick items off. You watch it happen live in the app. Agents without
 file access connect through the built-in **MCP server**.
 
-<!-- TODO: 10s demo GIF — agent ticks a task, the app lights up the line -->
+![An agent edits a project file; Notix updates live](docs/demo.gif)
 
 ## Why
 
@@ -99,4 +99,4 @@ The server listens only on `127.0.0.1`, and every API call needs a per-install t
 
 ## License
 
-<!-- TODO: choose a license (MIT?) before the first public release -->
+[MIT](LICENSE)

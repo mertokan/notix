@@ -106,7 +106,11 @@ notes/<slug>.md  →  store.js  →  server.js (127.0.0.1)  →  public/ (vanill
   (SSE, token `?t=`) `<slug>.md` değişince `{"slug"}` yollar. 5sn poll yedek olarak kalır.
 - **Görünüm**: dil/tema/vurgu `.notix-config.json`'da (`lang`, `theme`, `accent`;
   izinli değerler server.js `CHOICES`). Çeviriler `public/i18n.js`, temalar
-  `style.css`'te `html[data-theme]`/`[data-accent]`. Yeni metin = sözlüğe anahtar.
+  `style.css`'te `html[data-theme]`/`[data-accent]`. Yeni metin = sözlüğe anahtar (9 dil
+  birden); sayılı metin `{one, other…}` biçiminde (`Intl.PluralRules`). Sunucu hata
+  metinleri sabit Türkçe ascii kalır — istemci `I18N.te()` ile çevirir, metni
+  değiştirirsen `err` sözlüğünü de güncelle. İlk açılış rehberi `rehber()`
+  (`localStorage.notixGuide`).
 - **Not klasörü seçimi**: config `dir`; electron.js server'ı require etmeden önce
   okuyup `NOTIX_DIR` yapar. `POST /api/pick` → `onPick` → seçince yeniden başlar.
 - **Bildirim**: electron.js saatte bir `store.due`, gün başına bir kez (`notify`).
