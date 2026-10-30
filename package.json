@@ -8,7 +8,7 @@
     "start": "electron .",
     "server": "node server.js",
     "test": "node --test",
-    "dist": "electron-builder --win"
+    "dist": "electron-builder"
   },
   "devDependencies": {
     "electron": "^43.2.0",
@@ -22,12 +22,23 @@
       "electron.js",
       "server.js",
       "store.js",
+      "mcp.js",
       "package.json",
       "public/**"
     ],
     "win": {
       "target": "nsis",
       "icon": "public/icon.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icon.png",
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/icon.png",
+      "category": "Office"
     },
     "nsis": {
       "oneClick": false,
