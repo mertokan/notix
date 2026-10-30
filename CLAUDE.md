@@ -19,7 +19,7 @@ Bu repo hem bir uygulama hem bir veri deposu. Hangi işi yaptığını ayırt et
 npm start                                  # masaüstü uygulaması (Electron; server'ı kendi başlatır)
 npm run server                             # sadece HTTP sunucu, 127.0.0.1:4321
 npm test                                   # tüm testler (node:test, framework yok)
-npm run dist                               # Windows kurulum dosyası (electron-builder, NSIS) → dist/
+npm run dist                               # bu platformun kurulum dosyası (electron-builder) → dist/
 node --test --test-name-pattern="409"      # tek test
 ```
 
@@ -98,6 +98,20 @@ notes/<slug>.md  →  store.js  →  server.js (127.0.0.1)  →  public/ (vanill
   `openAtLogin` → `app.setLoginItemSettings` (sadece paketliyken, yoksa electron.exe
   kayda girer). `autoUpdate` → açılışta `GET /api/update` GitHub releases'tan son
   sürümü okur, sadece "yeni sürüm var" der; indirme/kurma yok (electron-updater sonra).
+- **mcp.js** — dosya erişimi olmayan istemciler için MCP sunucusu: stdio, satır
+  ayrımlı JSON-RPC, SDK yok. `store`'u doğrudan çağırır (uygulama kapalıyken de
+  çalışır); `expect` zorunlu, silme aracı yok. İstemciye yapıştırılacak ayarı
+  `GET /api/info` → `mcp` verir (kurulu sürümde Notix.exe + `ELECTRON_RUN_AS_NODE`).
+- **Anlık tazeleme**: `start()` not klasörünü `fs.watch` ile izler, `GET /api/events`
+  (SSE, token `?t=`) `<slug>.md` değişince `{"slug"}` yollar. 5sn poll yedek olarak kalır.
+- **Görünüm**: dil/tema/vurgu `.notix-config.json`'da (`lang`, `theme`, `accent`;
+  izinli değerler server.js `CHOICES`). Çeviriler `public/i18n.js`, temalar
+  `style.css`'te `html[data-theme]`/`[data-accent]`. Yeni metin = sözlüğe anahtar.
+- **Not klasörü seçimi**: config `dir`; electron.js server'ı require etmeden önce
+  okuyup `NOTIX_DIR` yapar. `POST /api/pick` → `onPick` → seçince yeniden başlar.
+- **Bildirim**: electron.js saatte bir `store.due`, gün başına bir kez (`notify`).
+- **Release**: `.github/workflows/release.yml` — `v*` tag'inde Win/Mac/Linux derler,
+  GitHub release'e yükler. İmza secret'ları yoksa imzasız.
 - **public/** — vanilla JS + DOM API, **build adımı yok**. Framework/bundler ekleme.
   Kullanıcı metni her zaman `textContent` ile basılır (`el()` helper), `innerHTML`
   ile değil — içeriği AI de yazıyor. 5 saniyede bir poll ile tazelenir (input
@@ -113,4 +127,3 @@ Eklenecekse en güncel sürüm (`npm view <pkg> version`).
 
 - **Mobil / PWA / LAN erişimi**: hesap-bulut olmadan ev dışından erişilemediği için
   kaldırıldı. Geri gelirse sunucu bind'ı `0.0.0.0` + manifest, ya da gerçek senkron.
-- **MCP sunucusu**: dosya erişimi olan ajanlar zaten `notes/` okuyabiliyor.

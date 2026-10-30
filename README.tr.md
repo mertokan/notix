@@ -1,5 +1,7 @@
 # Notix
 
+[English](README.md) · **Türkçe**
+
 Proje notları / yapılacaklar. Masaüstü uygulaması, tamamen local, hesap yok.
 Kaynak veri **`notes/<proje>.md`** — düz markdown, `- [ ]` / `- [x]`.
 Dolayısıyla AI ajanları (Claude Code vb.) hiçbir entegrasyon olmadan listeyi
@@ -47,6 +49,18 @@ Uzak depo eklersen (`git -C notes remote add …`) yedek de olur. Kapatmak için
 ⌨ penceresindeki "Otomatik yedek". Git kurulu değilse sessizce atlanır.
 
 Silinen projeler `notes/.trash/` altına taşınır, gerçekten silinmez.
+
+## AI ajanları (MCP)
+
+Dosya erişimi olmayan istemciler (Claude Desktop, Cursor, ChatGPT…) için `mcp.js`
+bir MCP sunucusudur. Hazır ayar: **⚙ Ayarlar → AI ajanları → MCP ayarını kopyala**,
+istemcinin `mcpServers` ayarına yapıştır. Elle:
+`claude mcp add notix -e NOTIX_DIR=<not klasörü> -- node <repo>/mcp.js`
+
+## Görünüm
+
+⚙ Ayarlar'dan: 9 dil (Türkçe, English, Deutsch, Español, Français, Português,
+Русский, 日本語, 中文), 6 tema (koyu, açık, sistem, gece, kâğıt, orman) ve 8 vurgu rengi.
 
 ## Sonraya bırakılanlar
 
