@@ -266,3 +266,28 @@ test('bugun: tarihi gelmis acik isler, gelecektekiler haric', () => {
   store.updateTask(slug, bitmis.i, { expect: bitmis.text, done: true })
   assert.deepEqual(store.due('2026-09-11').map((x) => x.date), ['2026-09-11']) // bitmisler dusuyor
 })
+
+test('dosya degisince /api/events slug ile haber verir, tokensiz 401', async () => {
+  process.env.NOTIX_HOME = store.DIR
+  const { start, TOKEN } = require('./server')
+  const server = start(0) // rastgele port
+  await new Promise((r) => server.once('listening', r))
+  const base = `http://127.0.0.1:${server.address().port}/api/events`
+  try {
+    assert.equal((await fetch(base)).status, 401)
+    const ac = new AbortController()
+    const res = await fetch(`${base}?t=${TOKEN}`, { signal: ac.signal })
+    assert.equal(res.headers.get('content-type'), 'text/event-stream')
+    const reader = res.body.getReader()
+    await reader.read() // ilk ": ok" = abone olundu
+    fs.writeFileSync(path.join(store.DIR, 'olay-testi.md'), '# Olay\n')
+    fs.writeFileSync(path.join(store.DIR, 'yok-sayilir.tmp'), 'x')
+    let got = ''
+    while (!got.includes('\n\n')) got += new TextDecoder().decode((await reader.read()).value)
+    assert.equal(got, 'data: {"slug":"olay-testi"}\n\n')
+    ac.abort()
+  } finally {
+    server.closeAllConnections()
+    await new Promise((r) => server.close(r))
+  }
+})

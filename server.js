@@ -26,13 +26,23 @@ const CFG = path.join(HOME, '.notix-config.json')
 const KEYS = { quickAdd: 'Control+Alt+N', find: 'Control+K', add: 'N', hideDone: 'H', help: '?' }
 // Masaustu secenekleri: acilista baslat (Electron setLoginItemSettings), guncelleme
 // denetimi, otomatik yedek (notes/ icinde git commit).
-const OPTS = { openAtLogin: false, autoUpdate: true, backup: true }
-const DEF = { ...KEYS, ...OPTS }
+const OPTS = { openAtLogin: false, autoUpdate: true, backup: true, notify: true }
+// Gorunum: dil, tema, vurgu rengi. Sadece listedeki degerler; public/i18n.js ve style.css ile ayni adlar.
+const CHOICES = {
+  lang: ['auto', 'tr', 'en', 'de', 'es', 'fr', 'pt', 'ru', 'ja', 'zh'],
+  theme: ['dark', 'light', 'system', 'midnight', 'paper', 'forest'],
+  accent: ['patina', 'blue', 'violet', 'pink', 'red', 'orange', 'gold', 'green'],
+}
+// dir: not klasoru ('' = varsayilan). electron.js acilista okuyup NOTIX_DIR yapar.
+const DEF = { ...KEYS, ...OPTS, ...Object.fromEntries(Object.entries(CHOICES).map(([k, v]) => [k, v[0]])), dir: '' }
 const config = () => { try { return { ...DEF, ...JSON.parse(fs.readFileSync(CFG, 'utf8')) } } catch { return { ...DEF } } }
 function writeConfig(body) {
+  body = { ...config(), ...body } // gonderilmeyen alan eskisi gibi kalsin
   const next = {} // sadece bildigimiz alanlar: kisayollar makul uzunlukta string, secenekler boolean
   for (const k of Object.keys(KEYS)) next[k] = typeof body[k] === 'string' && body[k].trim() && body[k].length <= 40 ? body[k].trim() : KEYS[k]
   for (const k of Object.keys(OPTS)) next[k] = typeof body[k] === 'boolean' ? body[k] : OPTS[k]
+  for (const [k, v] of Object.entries(CHOICES)) next[k] = v.includes(body[k]) ? body[k] : v[0]
+  next.dir = typeof body.dir === 'string' && (body.dir === '' || (path.isAbsolute(body.dir) && fs.existsSync(body.dir))) ? body.dir : ''
   fs.writeFileSync(CFG, JSON.stringify(next, null, 2))
   store.setBackup(next.backup)
   return next
@@ -64,6 +74,19 @@ const onWindow = (fn) => (windowHook = fn)
 let openHook = null
 const onOpen = (fn) => (openHook = fn)
 
+// Not klasoru secme: Electron sistem penceresini acar, secilen yolu dondurur (iptal = null)
+// ve kendini yeniden baslatir; yeni klasor acilista NOTIX_DIR olur.
+let pickHook = null
+const onPick = (fn) => (pickHook = fn)
+
+// MCP istemcisine (Claude Desktop, Cursor…) yapistirilacak ayar. Electron'da execPath
+// Notix.exe'nin kendisi; ELECTRON_RUN_AS_NODE ile node gibi calisip asar icinden okur.
+const mcpInfo = () => ({
+  command: process.execPath,
+  args: [path.join(__dirname, 'mcp.js')],
+  env: { NOTIX_DIR: store.DIR, ...(process.versions.electron ? { ELECTRON_RUN_AS_NODE: '1' } : {}) },
+})
+
 const fail = (code, msg) => Object.assign(new Error(msg), { code })
 // Yerel gun (toISOString UTC verir, gece yarisi civari yanlis gune dusebilir).
 const yerelBugun = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10) }
@@ -85,7 +108,14 @@ async function api(req, res, url) {
   const m = req.method
   const expect = url.searchParams.get('expect')
 
-  if (kind === 'info') return send(res, 200, { dir: store.DIR, version: VERSION })
+  if (kind === 'events') return events(req, res)
+  if (kind === 'info') return send(res, 200, { dir: store.DIR, version: VERSION, mcp: mcpInfo() })
+  if (kind === 'pick') {
+    if (m !== 'POST') return send(res, 405, { error: 'yontem desteklenmiyor' })
+    const dir = pickHook ? await pickHook() : null
+    if (dir) writeConfig({ dir })
+    return send(res, 200, { dir: dir || null })
+  }
   if (kind === 'update') return send(res, 200, await checkUpdate())
   if (kind === 'search') return send(res, 200, store.search(url.searchParams.get('q') || ''))
   // Bugun = istemcinin yerel tarihi (d=YYYY-MM-DD); verilmezse sunucununki.
@@ -113,7 +143,7 @@ async function api(req, res, url) {
     return send(res, 200, { ok: !!windowHook && Number.isFinite(h) && windowHook(h) })
   }
   if (kind === 'config') {
-    if (m === 'GET') return send(res, 200, { keys: config(), desktop: !!configHook })
+    if (m === 'GET') return send(res, 200, { keys: config(), desktop: !!configHook, choices: CHOICES })
     if (m === 'PUT') { const keys = writeConfig(await readBody(req)); return send(res, 200, { keys, bound: configHook ? configHook(keys) : null }) }
     return send(res, 405, { error: 'yontem desteklenmiyor' })
   }
@@ -179,10 +209,42 @@ const handler = (req, res) => {
     send(res, e.code >= 400 && e.code < 600 ? e.code : 500, { error: e.message }))
 }
 
-function start() {
-  return http.createServer(handler).listen(PORT, '127.0.0.1', () =>
-    console.log(`notix: http://127.0.0.1:${PORT}/?t=${TOKEN}`))
+// Not dosyasi degisince (Notix'in kendisi ya da disaridan AI/editor) acik sayfalara
+// haber verir; poll beklemeden tazelensinler. EventSource baslik gonderemez, token ?t= ile.
+const clients = new Set()
+function events(req, res) {
+  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store' })
+  res.write(': ok\n\n')
+  clients.add(res)
+  req.on('close', () => clients.delete(res))
+}
+function watch(server) {
+  const bekle = new Map()
+  let w = null
+  try {
+    fs.mkdirSync(store.DIR, { recursive: true })
+    w = fs.watch(store.DIR, (_, name) => {
+      const m = /^([a-z0-9][a-z0-9-]*)\.md$/.exec(name || '') // .git, .trash, media, gecici dosyalar disarida
+      if (!m) return
+      // Windows tek yazimda birden cok olay atiyor.
+      clearTimeout(bekle.get(m[1]))
+      bekle.set(m[1], setTimeout(() => {
+        bekle.delete(m[1])
+        for (const c of clients) c.write(`data: ${JSON.stringify({ slug: m[1] })}\n\n`)
+      }, 100))
+    })
+    w.on('error', () => w.close()) // izleme olmadan da calisir, poll var
+  } catch { w = null }
+  const ping = setInterval(() => { for (const c of clients) c.write(': ping\n\n') }, 25000).unref() // ara katman bos baglantiyi kesmesin
+  server.on('close', () => { if (w) w.close(); clearInterval(ping) })
 }
 
-module.exports = { start, PORT, TOKEN, config, onConfig, onWindow, onOpen, newer }
+function start(port = PORT) {
+  const server = http.createServer(handler).listen(port, '127.0.0.1', () =>
+    console.log(`notix: http://127.0.0.1:${server.address().port}/?t=${TOKEN}`))
+  watch(server)
+  return server
+}
+
+module.exports = { start, PORT, TOKEN, config, onConfig, onWindow, onOpen, onPick, newer }
 if (require.main === module) start()
