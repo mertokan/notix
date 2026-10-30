@@ -54,6 +54,10 @@
 <script>
 const token = new URLSearchParams(location.search).get('t') || ''
 const call = (p, o = {}) => fetch('/api' + p, { ...o, headers: { 'content-type': 'application/json', 'x-notix-token': token } })
+// Hata: sunucunun sabit metni (ya da ag hatasi) secili dilde, kutunun ipucunda
+const ask = (p, o) => call(p, o).then(async (r) => (r.ok ? r.json() : Promise.reject(new Error(I18N.te((await r.json().catch(() => ({}))).error || r.status)))),
+  (e) => Promise.reject(new Error(I18N.te(e.message))))
+const hata = (msg) => { document.body.classList.add('err'); box.title = msg; box.setAttribute('aria-invalid', 'true') }
 const box = document.getElementById('box')
 const pick = document.getElementById('pick')
 const metin = () => {
@@ -69,7 +73,7 @@ addEventListener('storage', () => uygula({ theme: localStorage.notixTheme, accen
 call('/config').then((r) => r.json()).then((c) => uygula(c.keys)).catch(() => {})
 // Ctrl+B/I/K ve panodan resim burada da calissin.
 MD.setToken(token)
-MD.bind(box, (p, body) => call(p, { method: 'POST', body: JSON.stringify(body) }).then((r) => r.json()), () => document.body.classList.add('err'))
+MD.bind(box, (p, body) => ask(p, { method: 'POST', body: JSON.stringify(body) }), hata)
 const list = document.getElementById('list')
 const who = pick.querySelector('.who')
 
@@ -138,14 +142,15 @@ box.onkeydown = async (e) => {
   if (e.key !== 'Enter' || !box.value.trim()) return
   box.disabled = true
   document.body.classList.remove('err')
+  box.title = ''
+  box.removeAttribute('aria-invalid')
   try {
     // Inbox yoksa acilir; create idempotent, var olan dosyaya dokunmaz.
-    if (projects[i].slug === 'inbox') await call('/projects', { method: 'POST', body: JSON.stringify({ title: 'Inbox' }) })
-    const r = await call(`/projects/${projects[i].slug}/tasks`, { method: 'POST', body: JSON.stringify({ text: box.value }) })
-    if (!r.ok) throw 0
+    if (projects[i].slug === 'inbox') await ask('/projects', { method: 'POST', body: JSON.stringify({ title: 'Inbox' }) })
+    await ask(`/projects/${projects[i].slug}/tasks`, { method: 'POST', body: JSON.stringify({ text: box.value }) })
     window.close()
-  } catch {
-    document.body.classList.add('err') // yazilan satir kutuda kalsin, kaybolmasin
+  } catch (e) {
+    hata(e.message) // yazilan satir kutuda kalsin, kaybolmasin
     box.disabled = false
     box.focus()
   }

@@ -3,9 +3,11 @@ if (q.get('t')) { localStorage.notixToken = q.get('t'); history.replaceState(nul
 MD.setToken(localStorage.notixToken || '')
 
 const api = async (p, o = {}) => {
+  // fetch reddi = ag hatasi; sunucunun sabit hata metni secili dile cevrilir
   const r = await fetch('/api' + p, { ...o, headers: { 'content-type': 'application/json', 'x-notix-token': localStorage.notixToken || '' } })
+    .catch((e) => { throw new Error(I18N.te(e.message)) })
   const b = await r.json().catch(() => ({}))
-  if (!r.ok) throw Object.assign(new Error(b.error || r.status), { status: r.status })
+  if (!r.ok) throw Object.assign(new Error(I18N.te(b.error || r.status)), { status: r.status, raw: b.error })
   return b
 }
 
@@ -38,7 +40,8 @@ function say(msg) {
   clearTimeout(toastT)
   toastT = setTimeout(() => n.classList.remove('on'), 3200)
 }
-const oops = (e) => { say(e.status === 409 ? t('changedRefreshed') : t('failed', { e: e.message })); open_(cur) }
+// 409'larin cogu "arada degismis"; ad cakismasi da 409 ama tazelemek cozmez.
+const oops = (e) => { say(e.status === 409 && e.raw !== 'bu isimde proje var' ? t('changedRefreshed') : t('failed', { e: e.message })); open_(cur) }
 
 // Yerel gun: sunucunun degil kullanicinin takvimi esas (toISOString UTC verir).
 const bugun = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10) }
@@ -77,11 +80,11 @@ async function open_(slug, poll) {
     el('header', {},
       el('span', { className: 'hash', ariaHidden: 'true', textContent: '#' }),
       title,
-      el('span', { className: 'meta', textContent: t('counts', { open, done: tasks.length - open }) }),
+      el('span', { className: 'meta', textContent: t('counts', { open: t('qOpen', { n: open }), done: t('nDone', { n: tasks.length - open }) }) }),
       el('button', { className: 'link', textContent: t('doc'), title: t('docHint'), onclick: openDoc }),
       el('button', { className: 'link', textContent: hidden() ? t('showDone') : t('hideDone'), onclick: toggleDone }),
       el('button', { className: 'link warn', textContent: t('toTrash'), title: t('toTrashHint'), onclick: () => trashProject(slug) })),
-    bellekPaneli(mem),
+    bellekPaneli(mem, p.items.find((x) => x.i === mem.from)),
     // bellek bolumunun satirlari listede tekrar gorunmesin
     el('ul', { className: 'tasks' }, p.items
       .filter((it) => !(mem.from >= 0 && it.i >= mem.from && it.i < mem.to))
@@ -113,7 +116,8 @@ function bellekSatirlari(text) {
   }).filter(Boolean)
 }
 
-function bellekPaneli(mem) {
+// baslik: dosyadaki gercek bolum basligi satiri (## Bellek, ## Memory…)
+function bellekPaneli(mem, baslik) {
   const govde = mem.text
     ? el('div', { className: 'mem-body' }, bellekSatirlari(mem.text))
     : el('p', { className: 'mem-bos', textContent: t('memEmpty') })
@@ -121,7 +125,7 @@ function bellekPaneli(mem) {
   return el('section', { className: 'mem' + (mem.text ? '' : ' bos') },
     el('div', { className: 'mem-bar' },
       el('span', { className: 'etiket', textContent: t('memory') }),
-      el('span', { className: 'yol', textContent: mem.from >= 0 ? t('memWhere', { n: mem.from + 1 }) : t('memNone') }),
+      el('span', { className: 'yol', textContent: mem.from >= 0 ? t('memWhere', { h: baslik ? '#'.repeat(baslik.level) + ' ' + baslik.text : '#', n: mem.from + 1 }) : t('memNone') }),
       el('button', { className: 'link', textContent: mem.text ? t('edit') : t('addMem'), onclick: (e) => bellekDuzenle(e.target.closest('.mem'), mem) })),
     govde)
 }
@@ -142,7 +146,7 @@ function bellekDuzenle(panel, mem) {
 
 async function bellekKaydet(ta, mem) {
   try {
-    await api(`/projects/${cur}/memory`, { method: 'PUT', body: JSON.stringify({ text: ta.value, expect: mem.text }) })
+    await api(`/projects/${cur}/memory`, { method: 'PUT', body: JSON.stringify({ text: ta.value, expect: mem.text, heading: I18N.lang === 'tr' ? 'Bellek' : 'Memory' }) })
     open_(cur)
     say(t('memSaved'))
   } catch (e) {
@@ -397,7 +401,7 @@ async function showTrash() {
           el('span', { className: 'when', textContent: when(b.at) }),
           el('span', { className: 'txt' },
             el('span', { className: 'name', textContent: b.title }),
-            el('span', { className: 'file', textContent: t('trashFile', b) })),
+            el('span', { className: 'file', textContent: t('trashFile', { file: b.file, open: t('qOpen', { n: b.open }), done: t('nDone', { n: b.done }) }) })),
           el('button', { className: 'link', textContent: t('restore'), onclick: () => restore(b) }),
           el('button', { className: 'link warn', textContent: t('purge'), onclick: () => purge(b) }))))
       : el('p', { className: 'empty', textContent: t('trashEmpty') }),
@@ -595,7 +599,9 @@ function showKeys() {
     el('h3', { textContent: t('ai') }),
     el('p', { className: 'hint', textContent: t('mcpHint') }),
     el('p', {}, mcp),
-    el('form', { method: 'dialog' }, el('button', { textContent: t('close') })))
+    el('form', { method: 'dialog', className: 'end' },
+      el('button', { type: 'button', className: 'link', textContent: t('guideAgain'), onclick: () => { d.close(); rehber() } }),
+      el('button', { textContent: t('close') })))
   if (!d.open) d.showModal()
   if (odak) $(odak)?.focus()
 }
@@ -631,6 +637,96 @@ async function checkUpdate() {
 
 $('help').onclick = showKeys
 $('keys').addEventListener('close', () => { cap = null })
+
+/* --- ilk acilis rehberi: ilgili oge halkayla vurgulanir, gerisi kararir --- */
+// on: sirayla denenen seciciler, ilk gorunen vurgulanir; hicbiri yoksa kart ortada.
+const ADIM = [
+  { t: 'g1t', b: 'g1b' },
+  { t: 'g2t', b: 'g2b', on: ['#newp'] },
+  { t: 'g3t', b: 'g3b', on: ['.add', '#projects', '#main .empty'] }, // proje yoksa liste bos: hos geldin yazisi
+  { t: 'today', b: 'g4b', on: ['#today'] },
+  { t: 'g5t', b: 'g5b', on: ['#find'] },
+  { t: 'settings', b: 'g6b', on: ['#help'] },
+  { t: 'ai', b: 'g7b', on: ['#where'] },
+]
+const dar = matchMedia('(max-width: 760px)')
+
+function rehber() {
+  if ($('guide')) return
+  let i = 0
+  const once = document.activeElement
+  const halka = el('div', { className: 'g-ring' })
+  const sayac = el('span', { className: 'g-step' })
+  const baslik = el('h3', { id: 'g-title' })
+  const metin = el('p', { id: 'g-body' })
+  const bAtla = el('button', { className: 'link', onclick: () => bitir() })
+  const bGeri = el('button', { className: 'link', onclick: () => git(-1) })
+  const bIleri = el('button', { className: 'go', onclick: () => git(1) })
+  const kart = el('div', { className: 'g-card', role: 'dialog', tabIndex: -1 },
+    el('div', { ariaLive: 'polite' }, sayac, baslik, metin),
+    el('div', { className: 'g-bar' }, bAtla, el('span', { className: 'g-gap' }), bGeri, bIleri))
+  kart.setAttribute('aria-modal', 'true')
+  kart.setAttribute('aria-labelledby', 'g-title')
+  kart.setAttribute('aria-describedby', 'g-body')
+  const kok = el('div', { id: 'guide' }, halka, kart)
+  // arka plan tiklanamaz/odaklanamaz; odak kartta kalir
+  const kapali = [...document.body.children].filter((n) => !n.inert)
+  kapali.forEach((n) => (n.inert = true))
+  document.body.append(kok)
+  kok.onmousedown = (e) => { if (!kart.contains(e.target)) e.preventDefault() }
+  kok.addEventListener('keydown', (e) => {
+    e.stopPropagation() // uygulama kisayollari rehberin altinda calismasin
+    if (e.key === 'Escape') { e.preventDefault(); bitir() }
+    else if (e.key === 'ArrowRight' || (e.key === 'Enter' && e.target === kart)) { e.preventDefault(); git(1) }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); git(-1) }
+  })
+
+  const hedef = () => ADIM[i].on?.map((s) => document.querySelector(s)).find((n) => n?.offsetWidth && n.offsetHeight)
+  const yerlestir = () => {
+    const h = hedef()
+    kok.classList.toggle('free', !h)
+    const p = 6, r = h ? h.getBoundingClientRect() : null
+    const k = r ? { x: r.left - p, y: r.top - p, w: r.width + 2 * p, h: r.height + 2 * p } : { x: innerWidth / 2, y: innerHeight / 2, w: 0, h: 0 }
+    Object.assign(halka.style, { left: k.x + 'px', top: k.y + 'px', width: k.w + 'px', height: k.h + 'px' })
+    kok.classList.toggle('top', !!h && k.y + k.h / 2 > innerHeight / 2) // dar ekranda oge alttaysa kart uste
+    if (!h || dar.matches) return (kart.style.left = kart.style.top = '') // CSS: ortada / altta tam genislik
+    const c = kart.getBoundingClientRect(), m = 12
+    let x = k.x + k.w + m, y = k.y // once sagina
+    if (x + c.width > innerWidth - m) { x = k.x; y = k.y + k.h + m } // sigmazsa altina
+    if (y + c.height > innerHeight - m) y = k.y - c.height - m // o da sigmazsa ustune
+    kart.style.left = Math.max(m, Math.min(x, innerWidth - c.width - m)) + 'px'
+    kart.style.top = Math.max(m, Math.min(y, innerHeight - c.height - m)) + 'px'
+  }
+  const izle = new ResizeObserver(() => yerlestir())
+
+  function ciz() {
+    const son = i === ADIM.length - 1
+    sayac.textContent = `${i + 1}/${ADIM.length}`
+    baslik.textContent = t(ADIM[i].t)
+    metin.textContent = t(ADIM[i].b, { k: keys.quickAdd || 'Control+Alt+N', s: t('settings'), m: t('copyMcp') })
+    bAtla.textContent = t('gSkip'); bAtla.hidden = son
+    bGeri.textContent = t('gBack'); bGeri.hidden = i === 0
+    bIleri.textContent = t(son ? 'gStart' : 'gNext')
+    izle.disconnect()
+    const h = hedef()
+    if (h) { izle.observe(h); h.scrollIntoView({ block: dar.matches ? 'center' : 'nearest' }) } // dar ekranda kart altta: oge ortada kalsin
+    yerlestir()
+    bIleri.focus()
+  }
+  const git = (d) => (i + d < 0 ? null : i + d >= ADIM.length ? bitir() : ((i += d), ciz()))
+  function bitir() {
+    localStorage.notixGuide = '1'
+    izle.disconnect()
+    removeEventListener('resize', yerlestir)
+    removeEventListener('scroll', yerlestir, true)
+    kok.remove()
+    kapali.forEach((n) => (n.inert = false))
+    once?.focus?.()
+  }
+  addEventListener('resize', yerlestir)
+  addEventListener('scroll', yerlestir, true)
+  ciz()
+}
 
 const welcome = () => [
   el('p', { className: 'empty', textContent: t('welcome') }),
@@ -670,4 +766,5 @@ statik()
 $('main').replaceChildren(...welcome())
 loadProjects()
   .then(() => open_(decodeURIComponent(location.hash.slice(1))))
+  .then(() => { if (!localStorage.notixGuide) rehber() })
   .catch((e) => $('main').replaceChildren(el('p', { className: 'empty', textContent: t('noConnect', { e: e.message }) })))

@@ -315,7 +315,39 @@ dialog .dir { flex: 1; min-width: 0; font: 11.5px var(--mono); color: var(--dim)
 .swatches input:checked { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--vellum); }
 .swatches input:focus-visible { outline: 2px solid var(--vellum); outline-offset: 4px; border-radius: 50%; }
 
+dialog form.end { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+
+/* --- ilk acilis rehberi: halka vurgulanan ogenin cevresinde, golgesi geri kalani karartir --- */
+#guide { position: fixed; inset: 0; z-index: 100; }
+.g-ring {
+  position: fixed; border-radius: 8px; pointer-events: none;
+  box-shadow: 0 0 0 2px var(--patina), 0 0 0 6px var(--sel), 0 0 0 200vmax rgba(0, 0, 0, .6);
+  transition: left .25s, top .25s, width .25s, height .25s;
+}
+#guide.free .g-ring { box-shadow: 0 0 0 200vmax rgba(0, 0, 0, .6); }
+.g-card {
+  position: fixed; width: 340px; max-width: calc(100vw - 24px); box-sizing: border-box;
+  background: var(--panel); color: var(--vellum); border: 1px solid var(--rule); border-left: 2px solid var(--patina);
+  border-radius: 10px; padding: 16px 18px 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  transition: left .25s, top .25s;
+}
+.g-card:focus { outline: none; }
+#guide.free .g-card { left: 50%; top: 50%; transform: translate(-50%, -50%); width: 400px; }
+.g-step { font: 11px var(--mono); color: var(--faint); }
+.g-card h3 { margin: 6px 0 8px; font: 600 15px/1.3 var(--sans); }
+.g-card p { margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: var(--dim); }
+.g-bar { display: flex; align-items: center; gap: 6px; }
+.g-gap { flex: 1; }
+.g-bar .go { background: var(--patina); color: var(--ink); font-weight: 600; }
+.g-bar .go:hover { background: var(--patina); filter: brightness(1.1); }
+.g-bar button:focus-visible { outline: 2px solid var(--vellum); outline-offset: 2px; }
+
 @media (max-width: 760px) {
+  #guide .g-card, #guide.free .g-card {
+    left: 0; right: 0; top: auto; bottom: 0; width: auto; max-width: none; transform: none;
+    border-radius: 12px 12px 0 0; border-left: 1px solid var(--rule); border-top: 2px solid var(--patina);
+  }
+  #guide.top .g-card { top: 0; bottom: auto; border-radius: 0 0 12px 12px; border-top: 1px solid var(--rule); border-bottom: 2px solid var(--patina); }
   body { flex-direction: column; }
   aside { width: 100%; height: auto; flex: none; border-right: 0; border-bottom: 1px solid var(--rule); }
   #projects { flex-direction: row; flex: none; overflow-x: auto; margin: 0; }
