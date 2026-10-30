@@ -6,15 +6,66 @@
   --panel: #201d18;
   --raise: #262219;
   --rule: #2e2a23;
+  --hover: #3a352c;
+  --scroll: #322c24;
   --vellum: #ece6da;
   --dim: #948b7c;
   --faint: #79705f;
-  --patina: #63b0a0;
   --amber: #d9a441;
   --danger: #d98070;
+  --danger-bg: #3a241f;
+  --danger-line: #4a2f29;
+  --due-line: #35544e;
+  --acc: #63b0a0;
+  --darken: 0%; /* acik temalarda vurgu bu kadar koyulasir: metin kontrasti */
   --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", sans-serif;
   color-scheme: dark;
+}
+/* Vurgu: --acc secilen renk, --patina temaya gore ondan turer. [data-accent] her
+   elemanda yeniden hesaplanir — ayarlardaki renk ornekleri de kendi rengini gosterir. */
+[data-accent=patina] { --acc: #63b0a0; }
+[data-accent=blue] { --acc: #6ea8e6; }
+[data-accent=violet] { --acc: #a99be8; }
+[data-accent=pink] { --acc: #e58bbd; }
+[data-accent=red] { --acc: #e88a80; }
+[data-accent=orange] { --acc: #e59a5b; }
+[data-accent=gold] { --acc: #d8b85a; }
+[data-accent=green] { --acc: #7cc47a; }
+:root, [data-accent] { --patina: color-mix(in srgb, var(--acc), black var(--darken)); }
+:root {
+  --sel: color-mix(in srgb, var(--patina) 28%, transparent);
+  --hit: color-mix(in srgb, var(--patina) 10%, transparent);
+}
+/* koyu + patina birebir eski renk; gerisi vurgudan turer */
+html:is([data-accent]:not([data-accent=patina]), [data-theme]:not([data-theme=dark])) {
+  --due-line: color-mix(in srgb, var(--patina) 40%, var(--ink));
+}
+
+html[data-theme=midnight] {
+  --ink: #11141c; --panel: #171b26; --raise: #1d2230; --rule: #252b3a; --hover: #2f3648; --scroll: #2a3142;
+  --vellum: #e3e7f0; --dim: #8d96aa; --faint: #737d93; --danger: #e08577; --danger-bg: #3a2228; --danger-line: #4d2c33;
+}
+html[data-theme=forest] {
+  --ink: #121813; --panel: #182019; --raise: #1e281f; --rule: #263227; --hover: #314033; --scroll: #2c3a2e;
+  --vellum: #e4ebe1; --dim: #8fa08f; --faint: #748574; --danger: #e08577; --danger-bg: #3a2420; --danger-line: #4d2f29;
+}
+html[data-theme=light] {
+  --ink: #f7f6f3; --panel: #efede8; --raise: #e5e2db; --rule: #d9d5cc; --hover: #cfcac0; --scroll: #c8c2b6;
+  --vellum: #1d1b17; --dim: #57524a; --faint: #6b665c; --amber: #a87200; --danger: #b23b2a; --danger-bg: #f6e1dc; --danger-line: #e6b9ae;
+  --darken: 42%; color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  html[data-theme=system] {
+    --ink: #f7f6f3; --panel: #efede8; --raise: #e5e2db; --rule: #d9d5cc; --hover: #cfcac0; --scroll: #c8c2b6;
+    --vellum: #1d1b17; --dim: #57524a; --faint: #6b665c; --amber: #a87200; --danger: #b23b2a; --danger-bg: #f6e1dc; --danger-line: #e6b9ae;
+    --darken: 42%; color-scheme: light;
+  }
+}
+html[data-theme=paper] {
+  --ink: #f6f0e1; --panel: #efe7d4; --raise: #e6dcc5; --rule: #dbd0b6; --hover: #d0c4a8; --scroll: #cbbf9f;
+  --vellum: #2b2418; --dim: #5b503e; --faint: #6c614d; --amber: #9c6b00; --danger: #a8392a; --danger-bg: #f3dcd2; --danger-line: #e0b4a6;
+  --darken: 42%; color-scheme: light;
 }
 * { box-sizing: border-box; }
 /* Pencere sabit: sol sutun her zaman tam sigar, sadece proje listesi ve sag taraf kayar. */
@@ -23,15 +74,15 @@ body {
   margin: 0; display: flex; overflow: hidden;
   background: var(--ink); color: var(--vellum);
   font: 15px/1.55 var(--sans); -webkit-font-smoothing: antialiased;
-  scrollbar-width: thin; scrollbar-color: #322c24 transparent;
+  scrollbar-width: thin; scrollbar-color: var(--scroll) transparent;
 }
 button, input, select { font: inherit; color: inherit; }
 button { background: var(--rule); border: 0; border-radius: 6px; padding: 7px 11px; cursor: pointer; }
-button:hover { background: #3a352c; }
+button:hover { background: var(--hover); }
 .link { background: none; color: var(--faint); font: 12px var(--mono); padding: 5px 7px; }
 .link:hover { background: var(--raise); color: var(--vellum); }
-.link.warn:hover { background: #3a241f; color: var(--danger); }
-::selection { background: rgba(99, 176, 160, .28); }
+.link.warn:hover { background: var(--danger-bg); color: var(--danger); }
+::selection { background: var(--sel); }
 :focus-visible { outline: 2px solid var(--patina); outline-offset: 2px; border-radius: 3px; }
 
 /* --- kenar sutunu --- */
@@ -133,8 +184,8 @@ select.tasi { background: var(--ink); border: 1px solid var(--patina); border-ra
 .txt a { color: var(--patina); text-decoration: none; }
 /* @2026-09-15 → tarih rozeti; gecmis kirmizi, bugun patina. */
 .due { font: 11.5px var(--mono); color: var(--faint); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
-.due.bugun { color: var(--patina); border-color: #35544e; }
-.due.gecti { color: var(--danger); border-color: #4a2f29; }
+.due.bugun { color: var(--patina); border-color: var(--due-line); }
+.due.gecti { color: var(--danger); border-color: var(--danger-line); }
 .task.done .due { color: var(--faint); border-color: var(--rule); }
 .txt a:hover { text-decoration: underline; }
 .txt img { display: block; max-width: 100%; max-height: 280px; margin: 6px 0 2px; border: 1px solid var(--rule); border-radius: 6px; }
@@ -219,11 +270,11 @@ kbd, dialog code {
 
 /* --- disaridan gelen degisiklik / aramadan gelen satir --- */
 @keyframes flash {
-  from { background: rgba(217, 164, 65, .16); box-shadow: inset 2px 0 0 var(--amber); }
+  from { background: color-mix(in srgb, var(--amber) 16%, transparent); box-shadow: inset 2px 0 0 var(--amber); }
   to { background: transparent; box-shadow: inset 2px 0 0 transparent; }
 }
 .tasks li.changed { animation: flash 2.4s ease-out; }
-.tasks li.hit { background: rgba(99, 176, 160, .1); box-shadow: inset 2px 0 0 var(--patina); }
+.tasks li.hit { background: var(--hit); box-shadow: inset 2px 0 0 var(--patina); }
 
 .corner { position: fixed; right: 16px; bottom: 14px; font: 12px var(--mono); color: var(--dim); background: var(--panel); border: 1px solid var(--rule); }
 .corner:hover { background: var(--raise); color: var(--vellum); }
@@ -235,7 +286,7 @@ kbd, dialog code {
 }
 #toast.on { opacity: 1; transform: none; }
 
-/* --- kisayol penceresi --- */
+/* --- ayarlar penceresi --- */
 dialog {
   background: var(--panel); color: var(--vellum); border: 1px solid var(--rule);
   border-radius: 10px; padding: 18px 20px; max-width: 480px; width: calc(100% - 32px);
@@ -245,11 +296,24 @@ dialog h3 { margin: 0 0 12px; font: 600 15px/1 var(--sans); }
 dialog table { border-collapse: collapse; width: 100%; margin-bottom: 12px; }
 dialog td { padding: 5px 0; font-size: 13.5px; vertical-align: middle; }
 dialog td:nth-child(2) { text-align: right; padding: 5px 8px; white-space: nowrap; }
-dialog td:last-child { text-align: right; width: 1%; }
+dialog td:last-child { text-align: right; width: 1%; white-space: nowrap; }
 dialog tr.capturing code { border-color: var(--patina); color: var(--patina); }
 dialog .hint { margin-bottom: 12px; }
 dialog form { text-align: right; }
 dialog .opt { display: block; margin: 6px 0; cursor: pointer; }
+dialog { max-height: calc(100vh - 32px); overflow-y: auto; }
+dialog h3:not(:first-child) { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--rule); }
+dialog .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0; font-size: 13.5px; }
+dialog select { background: var(--ink); border: 1px solid var(--rule); border-radius: 6px; padding: 4px 6px; font-size: 13px; }
+dialog .dir { flex: 1; min-width: 0; font: 11.5px var(--mono); color: var(--dim); word-break: break-all; }
+/* vurgu rengi: native radio grubu (ok tuslari calisir), her ornek kendi data-accent'iyla boyanir */
+.swatches { display: flex; gap: 8px; }
+.swatches input {
+  appearance: none; margin: 0; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--patina); cursor: pointer;
+}
+.swatches input:checked { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--vellum); }
+.swatches input:focus-visible { outline: 2px solid var(--vellum); outline-offset: 4px; border-radius: 50%; }
 
 @media (max-width: 760px) {
   body { flex-direction: column; }

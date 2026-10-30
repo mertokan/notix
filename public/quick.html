@@ -2,42 +2,43 @@
 <html lang="tr">
 <head>
 <meta charset="utf-8">
+<link rel="icon" href="/icon.svg">
 <title>Notix — hızlı ekleme</title>
+<link rel="stylesheet" href="/style.css">
+<script src="/i18n.js"></script>
 <style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; }
+  /* renkler style.css'in tema degiskenleri; burada sadece kutunun yerlesimi */
   body {
-    overflow: hidden; display: flex; flex-direction: column;
-    background: #201d18; border: 1px solid #63b0a0; color: #ece6da;
-    font: 16px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+    flex-direction: column;
+    background: var(--panel); border: 1px solid var(--patina);
+    font: 16px/1 var(--sans);
   }
   #bar { flex: none; height: 60px; display: flex; align-items: center; gap: 10px; padding: 0 14px; }
   /* ana pencerenin ekleme satiriyla ayni: dosyaya eklenecek satiri gosterir */
-  .box { font: 15px ui-monospace, "Cascadia Mono", Consolas, monospace; color: #63b0a0; user-select: none; }
+  .box { font: 15px var(--mono); color: var(--patina); user-select: none; }
   input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: inherit; font: inherit; }
-  input::placeholder { color: #79705f; }
+  input::placeholder { color: var(--faint); }
   /* Sistem acilir listesi kutunun disina cizildigi icin CSS almiyordu; liste
      artik sayfanin icinde, pencere acilinca buyuyor. */
   #pick {
     display: flex; align-items: center; gap: 7px; max-width: 210px;
     background: none; border: 0; border-radius: 6px; padding: 5px 7px; cursor: pointer;
-    font: 12px ui-monospace, "Cascadia Mono", Consolas, monospace; color: #79705f;
+    font: 12px var(--mono); color: var(--faint);
   }
-  #pick:hover, #pick:focus-visible, #pick.open { background: #262219; color: #63b0a0; outline: none; }
+  #pick:hover, #pick:focus-visible, #pick.open { background: var(--raise); color: var(--patina); outline: none; }
   #pick .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #pick .cyc { color: #4f483d; }
-  #list { list-style: none; margin: 0; padding: 6px; overflow-y: auto; border-top: 1px solid #2e2a23; scrollbar-width: thin; }
+  #pick .cyc { color: var(--faint); opacity: .6; }
+  #list { list-style: none; margin: 0; padding: 6px; overflow-y: auto; border-top: 1px solid var(--rule); scrollbar-width: thin; }
   #list li {
     display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
     padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13.5px;
   }
-  #list li:hover { background: #262219; }
-  #list li.on { background: #262219; box-shadow: inset 2px 0 0 #63b0a0; }
-  #list li.on .who { color: #63b0a0; }
-  #list .c { font: 11px ui-monospace, Consolas, monospace; color: #79705f; }
-  body.err { border-color: #d98070; }
-  body.err .box { color: #d98070; }
+  #list li:hover { background: var(--raise); }
+  #list li.on { background: var(--raise); box-shadow: inset 2px 0 0 var(--patina); }
+  #list li.on .who { color: var(--patina); }
+  #list .c { font: 11px var(--mono); color: var(--faint); }
+  body.err { border-color: var(--danger); }
+  body.err .box { color: var(--danger); }
 </style>
 </head>
 <body>
@@ -55,6 +56,17 @@ const token = new URLSearchParams(location.search).get('t') || ''
 const call = (p, o = {}) => fetch('/api' + p, { ...o, headers: { 'content-type': 'application/json', 'x-notix-token': token } })
 const box = document.getElementById('box')
 const pick = document.getElementById('pick')
+const metin = () => {
+  document.title = t('qTitle')
+  box.placeholder = t('qPlaceholder')
+  box.setAttribute('aria-label', t('qAria'))
+  pick.title = t('qPick')
+}
+metin()
+// Ayarlar ana pencerede degisirse (ayni origin, ayni localStorage) burada da gecsin.
+const uygula = (c) => { I18N.look(c); if (c.lang !== I18N.pick) I18N.set(c.lang); metin() }
+addEventListener('storage', () => uygula({ theme: localStorage.notixTheme, accent: localStorage.notixAccent, lang: localStorage.notixLang }))
+call('/config').then((r) => r.json()).then((c) => uygula(c.keys)).catch(() => {})
 // Ctrl+B/I/K ve panodan resim burada da calissin.
 MD.setToken(token)
 MD.bind(box, (p, body) => call(p, { method: 'POST', body: JSON.stringify(body) }).then((r) => r.json()), () => document.body.classList.add('err'))
@@ -90,7 +102,7 @@ async function openList() {
     li.className = n === i ? 'on' : ''
     li.setAttribute('role', 'option')
     const ad = document.createElement('span'); ad.className = 'who'; ad.textContent = p.title
-    const c = document.createElement('span'); c.className = 'c'; c.textContent = p.open ? `${p.open} açık` : ''
+    const c = document.createElement('span'); c.className = 'c'; c.textContent = p.open ? t('qOpen', { n: p.open }) : ''
     li.append(ad, c)
     li.onclick = () => { i = n; paint(); closeList(); box.focus() }
     return li

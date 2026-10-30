@@ -97,7 +97,7 @@ const MD = (() => {
       const it = [...(e.clipboardData?.items || [])].find((x) => x.type.startsWith('image/'))
       if (!it) return
       e.preventDefault()
-      try { wrap(el, await upload(it.getAsFile(), gonder), '') } catch (err) { bildir('Resim olmadı: ' + err.message) }
+      try { wrap(el, await upload(it.getAsFile(), gonder), '') } catch (err) { bildir(t('imgFailed', { e: err.message })) }
     })
   }
 
