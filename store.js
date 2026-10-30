@@ -268,21 +268,23 @@ function memory(slug) {
 }
 
 // expect = istemcinin gordugu bellek metni; arada AI yazdiysa 409.
-function setMemory(slug, text, expect) {
+// heading: bolum yoksa acilacak baslik (arayuz diline gore Bellek/Memory); varsa dosyadaki korunur.
+function setMemory(slug, text, expect, heading = 'Bellek') {
   if (typeof text !== 'string') throw bad(400, 'icerik metin olmali')
   const simdi = memory(slug)
   if (expect != null && simdi.text !== expect) throw bad(409, 'bellek arada degismis')
   const lines = readLines(slug)
   const govde = text.replace(/\r\n/g, '\n').replace(/^\n+|\n+$/g, '')
+  const baslik = simdi.from >= 0 ? lines[simdi.from] : `## ${heading === 'Memory' ? 'Memory' : 'Bellek'}`
 
   if (simdi.from >= 0) {
     // bos birakildiysa bolumu tamamen kaldir
-    lines.splice(simdi.from, simdi.to - simdi.from, ...(govde ? ['## Bellek', '', ...govde.split('\n'), ''] : []))
+    lines.splice(simdi.from, simdi.to - simdi.from, ...(govde ? [baslik, '', ...govde.split('\n'), ''] : []))
   } else if (govde) {
     // Bolum dosyanin sonuna: "sonraki basliga kadar" kurali yuzunden ortada
     // olsa altindaki her seyi yutardi. Yeni isler de bunun ustune girer.
     while (lines.length && !lines[lines.length - 1].trim()) lines.pop()
-    lines.push('', '## Bellek', '', ...govde.split('\n'), '')
+    lines.push('', baslik, '', ...govde.split('\n'), '')
   }
   writeLines(slug, lines)
 }

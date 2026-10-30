@@ -165,7 +165,7 @@ async function api(req, res, url) {
     if (m === 'DELETE') { store.remove(slug); return send(res, 200, { ok: true }) }
   } else if (sub === 'memory') {
     if (m === 'GET') return send(res, 200, store.memory(slug))
-    if (m === 'PUT') { const b = await readBody(req); store.setMemory(slug, b.text, b.expect); return send(res, 200, store.memory(slug)) }
+    if (m === 'PUT') { const b = await readBody(req); store.setMemory(slug, b.text, b.expect, b.heading); return send(res, 200, store.memory(slug)) }
   } else if (sub === 'raw') {
     if (m === 'GET') return send(res, 200, { text: store.read(slug) })
     if (m === 'PUT') { const b = await readBody(req); store.write(slug, b.text, b.expect); return send(res, 200, store.parse(slug)) }
@@ -206,7 +206,7 @@ const handler = (req, res) => {
   if (url.pathname.startsWith('/media/')) return serveMedia(res, url)
   if (!url.pathname.startsWith('/api/')) return serveStatic(res, url.pathname)
   api(req, res, new URL(req.url.replace('/api', ''), 'http://x')).catch((e) =>
-    send(res, e.code >= 400 && e.code < 600 ? e.code : 500, { error: e.message }))
+    send(res, e.code === 'ENOENT' ? 404 : e.code >= 400 && e.code < 600 ? e.code : 500, { error: e.message })) // ENOENT = proje dosyasi yok
 }
 
 // Not dosyasi degisince (Notix'in kendisi ya da disaridan AI/editor) acik sayfalara

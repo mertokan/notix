@@ -291,3 +291,12 @@ test('dosya degisince /api/events slug ile haber verir, tokensiz 401', async () 
     await new Promise((r) => server.close(r))
   }
 })
+
+test('bellek basligi: yoksa verilen dilde acilir, varsa dosyadaki korunur', () => {
+  const slug = store.create('Baslik dili')
+  store.setMemory(slug, 'ilk', null, 'Memory')
+  assert.match(store.read(slug), /^## Memory$/m)
+  store.setMemory(slug, 'ikinci', 'ilk') // varsayilan Bellek ama mevcut baslik degismez
+  assert.match(store.read(slug), /^## Memory$/m)
+  assert.doesNotMatch(store.read(slug), /Bellek/)
+})
