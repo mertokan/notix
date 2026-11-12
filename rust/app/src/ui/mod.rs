@@ -108,32 +108,13 @@ pub fn set_flag(name: &str, on: bool) {
     }
 }
 
-// Sistem dili: Windows'ta kayit defterinden (reg.exe), digerlerinde LANG. Bulunamazsa None → en.
-fn system_lang() -> Option<String> {
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        let out = std::process::Command::new("reg")
-            .args(["query", r"HKCU\Control Panel\International", "/v", "LocaleName"])
-            .creation_flags(0x0800_0000) // konsol penceresi acilmasin
-            .output()
-            .ok()?;
-        let s = String::from_utf8_lossy(&out.stdout).into_owned();
-        s.split_whitespace().last().map(String::from)
-    }
-    #[cfg(not(windows))]
-    {
-        std::env::var("LANG").ok()
-    }
-}
-
 impl App {
     pub fn new(cc: &eframe::CreationContext, store: Store, cfg: Config) -> App {
         egui_extras::install_image_loaders(&cc.egui_ctx);
         let store = Arc::new(store);
         let desktop = Desktop::start(cc.egui_ctx.clone(), &cfg, store.dir());
         let shot = shot::Driver::from_args();
-        let lang = cfg.lang_code(system_lang().as_deref());
+        let lang = cfg.lang();
         let pal = theme::palette(&cfg.theme, &cfg.accent, true);
         let mut app = App {
             store,
@@ -306,7 +287,7 @@ impl App {
 
     fn sync_theme(&mut self, ctx: &egui::Context) {
         let sys = theme::dark_system(ctx);
-        let lang = self.cfg.lang_code(system_lang_cached().as_deref());
+        let lang = self.cfg.lang();
         let key = (self.cfg.theme.clone(), self.cfg.accent.clone(), sys, lang.clone());
         if key == self.applied {
             return;
@@ -425,12 +406,6 @@ impl App {
             }
         }
     }
-}
-
-// reg.exe her karede cagrilmasin
-fn system_lang_cached() -> Option<String> {
-    static L: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
-    L.get_or_init(system_lang).clone()
 }
 
 /// egui tusundan Electron accelerator metni ("Control+Alt+N", "?"): yakalama de eslestirme de bunu kullanir.
@@ -797,7 +772,7 @@ impl App {
 mod tests {
     #[test]
     fn sistem_dili_okunur() {
-        let l = super::system_lang().expect("reg query");
+        let l = crate::config::system_lang().expect("reg query");
         assert!(l.len() >= 2 && l.chars().all(|c| c.is_ascii_alphabetic() || c == '-'), "{l}");
     }
 }

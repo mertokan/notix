@@ -326,7 +326,7 @@ impl Desktop {
     /// Donus: hizli ekleme kisayolu baglanabildi mi (false = baska uygulamada).
     pub fn apply(&mut self, cfg: &Config) -> bool {
         if let Some(t) = &self.tray {
-            t.set_menu(Some(Box::new(build_menu(&cfg.lang_code(sys_lang().as_deref())))));
+            t.set_menu(Some(Box::new(build_menu(&cfg.lang()))));
         }
         let mgr = self.hotkeys.as_ref();
         if let (Some(m), Some(old)) = (mgr, self.bound.take()) {
@@ -365,7 +365,7 @@ impl Desktop {
             return;
         }
         self.notified_day = day;
-        let lang = cfg.lang_code(sys_lang().as_deref());
+        let lang = cfg.lang();
         let body = std::iter::once(format!("{} {}", due.len(), due_text(&lang)))
             .chain(due.iter().take(3).map(|x| format!("• {}", x.text)))
             .collect::<Vec<_>>()
@@ -413,10 +413,6 @@ fn open_with_os(target: &std::ffi::OsStr) {
         ("xdg-open", &[])
     };
     let _ = Command::new(prog).args(pre).arg(target).spawn();
-}
-
-fn sys_lang() -> Option<String> {
-    std::env::var("LANG").ok().or_else(|| std::env::var("LC_ALL").ok()).filter(|s| !s.is_empty())
 }
 
 #[cfg(test)]

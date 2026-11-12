@@ -109,6 +109,11 @@ impl Config {
         std::fs::write(home.join("config.json"), serde_json::to_string_pretty(&self.to_json()).unwrap())
     }
 
+    /// Gecerli arayuz dili (auto ise sistem dili).
+    pub fn lang(&self) -> String {
+        self.lang_code(system_lang().as_deref())
+    }
+
     /// "auto" cozulmus dil kodu (sistem dili listede yoksa en). NOTIX_LANG testler icin.
     pub fn lang_code(&self, system: Option<&str>) -> String {
         if self.lang != "auto" {
@@ -118,6 +123,29 @@ impl Config {
         let base = sys.split(['-', '_']).next().unwrap_or("").to_lowercase();
         if LANGS[1..].contains(&base.as_str()) { base } else { "en".into() }
     }
+}
+
+/// Sistem dili (bir kez okunur): Windows'ta kayit defterinden (reg.exe), digerlerinde LANG/LC_ALL.
+/// Arayuz ve tepsi ayni sonucu kullansin diye tek yerde.
+pub fn system_lang() -> Option<String> {
+    static L: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    L.get_or_init(|| {
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            let out = std::process::Command::new("reg")
+                .args(["query", r"HKCU\Control Panel\International", "/v", "LocaleName"])
+                .creation_flags(0x0800_0000) // konsol penceresi acilmasin
+                .output()
+                .ok()?;
+            String::from_utf8_lossy(&out.stdout).split_whitespace().last().map(String::from)
+        }
+        #[cfg(not(windows))]
+        {
+            std::env::var("LANG").ok().or_else(|| std::env::var("LC_ALL").ok()).filter(|s| !s.is_empty())
+        }
+    })
+    .clone()
 }
 
 /// Not klasoru: NOTIX_DIR > ayarlardaki dir > Belgeler/Notix (kurulu Electron ile ayni).
