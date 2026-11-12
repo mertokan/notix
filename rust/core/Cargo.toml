@@ -1,0 +1,9 @@
+[package]
+name = "notix-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }

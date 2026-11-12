@@ -1,0 +1,9 @@
+[package]
+name = "notix"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+notix-core = { path = "../core" }
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
