@@ -31,8 +31,12 @@ file access connect through the built-in **MCP server**.
 
 ## Install
 
-Download the installer from [Releases](https://github.com/mertokan/notix/releases)
-(Windows `.exe`, macOS `.dmg`, Linux `.AppImage`).
+Every [release](https://github.com/mertokan/notix/releases) ships two flavors that share the
+same notes folder, so you can switch any time:
+
+- **Electron**: installer (Windows `.exe`, macOS `.dmg`, Linux `.AppImage`).
+- **Rust**: portable single binary with a native UI (`notix-rs-*.zip` / `.tar.gz`), smaller and
+  lighter. Source in [`rust/`](rust/README.md); MCP server is `notix --mcp`.
 
 From source:
 

@@ -5,7 +5,13 @@ ve ayni kurallari kullanir (bkz. `../AGENTS.md`); iki uygulama ayni klasoru acab
 
 - `core/` — `notix-core`: `store.js`'in karsiligi (satir tabanli yazma, `expect` → 409,
   silme yok / `.trash`, bellek bolumu, otomatik git yedegi).
-- `app/` — `notix` binary'si. Simdilik sadece `notix --mcp`; arayuz sonra.
+- `app/` — `notix` binary'si: egui masaustu uygulamasi (`ui/`), tepsi/kisayol/bildirim/dosya
+  izleme (`desktop.rs`), ayarlar (`config.rs`, `%APPDATA%/notix-rs/config.json` — Electron'unkinden
+  ayri, iki surum ayni anda acikken ayni kisayolu kapmasin), `notix --mcp` (`mcp.rs`).
+
+Arayuzu otomatik dogrulama (ornek veriyle, kullanicinin klasorune dokunmadan):
+`NOTIX_DIR=<tmp> NOTIX_HOME=<tmp> notix --shot <klasor>` ekranlarin PNG'sini ceker,
+`--selftest` eklenirse etkilesim testlerini kosar.
 
 ## Derleme ve test
 

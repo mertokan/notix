@@ -52,6 +52,11 @@ Uzak depo eklersen (`git -C notes remote add …`) yedek de olur. Kapatmak için
 
 Silinen projeler `notes/.trash/` altına taşınır, gerçekten silinmez.
 
+## İki sürüm
+
+Her release'te iki sürüm var, ikisi de aynı not klasörünü kullanır: **Electron** (kurulum
+dosyası) ve **Rust** (kurulumsuz tek dosya, yerel arayüz — kaynak [`rust/`](rust/README.md)).
+
 ## AI ajanları (MCP)
 
 Dosya erişimi olmayan istemciler (Claude Desktop, Cursor, ChatGPT…) için `mcp.js`

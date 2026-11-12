@@ -121,9 +121,19 @@ notes/<slug>.md  →  store.js  →  server.js (127.0.0.1)  →  public/ (vanill
   ile değil — içeriği AI de yazıyor. 5 saniyede bir poll ile tazelenir (input
   odaktayken atlanır), böylece dosyayı dışarıdan değiştiren AI ekranda görünür.
 
+## Rust sürümü (`rust/`)
+
+İkinci, bağımsız indirilen sürüm: aynı not klasörü ve aynı kurallar, arayüz egui. `rust/core`
+`store.js`'in birebir karşılığı — **store.js'te davranış değiştirirsen core'u da değiştir**;
+`cargo test` JS ile çıktıyı karşılaştırır (`tests/equiv.rs`) ve `mcp.test.js`'i Rust'a karşı
+koşar. Sürüm numarası `package.json` ile `rust/Cargo.toml`'da aynı tutulur (MCP `serverInfo`
+karşılaştırılıyor). HTTP API yok (Electron'da arayüzle sunucu arasındaki köprüydü); ajanlar
+`notix --mcp` kullanır. Arayüzü doğrulama: `notix --shot <klasör> [--selftest]`.
+Release: `v*` etiketi Electron ve Rust derlemelerini aynı taslak release'e yükler.
+
 ## Bağımlılıklar
 
-Runtime bağımlılığı **sıfır** (hepsi node stdlib), tek devDependency `electron`.
+Electron tarafında runtime bağımlılığı **sıfır** (hepsi node stdlib), tek devDependency `electron`. Rust tarafı crate kullanır (egui, tray-icon, global-hotkey…), yine de az tut.
 Bu kasıtlı. Paket eklemek bir karar — birkaç satırla çözülen şey için ekleme.
 Eklenecekse en güncel sürüm (`npm view <pkg> version`).
 

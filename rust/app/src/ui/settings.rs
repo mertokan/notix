@@ -113,7 +113,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
             h3(ui, &p, &t("shortcuts"), false);
             for (name, label) in KEYS {
                 ui.horizontal(|ui| {
-                    ui.label(t(label));
+                    // once sagdaki rozet + dugme, etiket kalan yere sarar (uzun kisayolun altina girmesin)
                     ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
                         let capturing = cap == Some(name);
                         if w::link(ui, &p, &t(if capturing { "cancelLow" } else { "change" }), LK::Plain).clicked() {
@@ -130,6 +130,9 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                         let c = if capturing { p.patina } else { p.dim };
                         egui::Frame::new().fill(p.ink).stroke(Stroke::new(1.0, if capturing { p.patina } else { p.rule })).corner_radius(4.0).inner_margin(Margin::symmetric(6, 2)).show(ui, |ui| {
                             ui.add(egui::Label::new(mono(txt, 11.0, c)).selectable(false));
+                        });
+                        ui.with_layout(egui::Layout::left_to_right(Align::Center), |ui| {
+                            ui.add(egui::Label::new(t(label)).wrap());
                         });
                     });
                 });
