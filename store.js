@@ -65,7 +65,7 @@ function list() {
   fs.mkdirSync(DIR, { recursive: true })
   return fs
     .readdirSync(DIR)
-    .filter((f) => f.endsWith('.md'))
+    .filter((f) => /^[a-z0-9][a-z0-9-]*\.md$/.test(f)) // README.md gibi elle konmus dosya listeyi dusurmesin
     .map((f) => {
       const p = parse(f.slice(0, -3))
       const t = p.items.filter((x) => x.kind === 'task')

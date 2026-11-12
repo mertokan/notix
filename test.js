@@ -300,3 +300,9 @@ test('bellek basligi: yoksa verilen dilde acilir, varsa dosyadaki korunur', () =
   assert.match(store.read(slug), /^## Memory$/m)
   assert.doesNotMatch(store.read(slug), /Bellek/)
 })
+
+test('not klasorunde gecersiz adli .md (README.md) listeyi dusurmez', () => {
+  fs.writeFileSync(path.join(store.DIR, 'README.md'), '# elle')
+  assert.ok(Array.isArray(store.list()))
+  fs.unlinkSync(path.join(store.DIR, 'README.md'))
+})
