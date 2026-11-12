@@ -1,6 +1,6 @@
 {
   "name": "notix",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "license": "MIT",
   "description": "Local-first proje notlari / yapilacaklar. Kaynak = duz markdown, AI'lar dogrudan duzenler.",
@@ -29,16 +29,16 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "public/icon.png"
+      "icon": "build/icon.png"
     },
     "mac": {
       "target": "dmg",
-      "icon": "public/icon.png",
+      "icon": "build/icon.png",
       "category": "public.app-category.productivity"
     },
     "linux": {
       "target": "AppImage",
-      "icon": "public/icon.png",
+      "icon": "build/icon.png",
       "category": "Office"
     },
     "nsis": {
