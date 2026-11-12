@@ -82,6 +82,16 @@ mod tests {
     }
 
     #[test]
+    fn tum_dillerde_tum_anahtarlar_var() {
+        let d = I18n::new("tr").data;
+        for (lang, _) in NAMES {
+            for k in d["tr"].as_object().unwrap().keys() {
+                assert!(d[lang].get(k).is_some(), "{lang}: {k} eksik");
+            }
+        }
+    }
+
+    #[test]
     fn t_ve_te() {
         let en = I18n::new("en");
         assert_eq!(en.t("qOpen", &[("n", "1")]), "1 open");

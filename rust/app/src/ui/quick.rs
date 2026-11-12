@@ -128,6 +128,7 @@ fn draw(ui: &mut egui::Ui, st: &Arc<Mutex<State>>, store: &Store, tr: &I18n) {
             let _ = std::fs::create_dir_all(Config::home());
             let _ = std::fs::write(Config::home().join("quick-to"), &s.projects[s.idx].0);
         }
+        super::project::md_keys(ui, box_id, &mut s.text);
         let enter = ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter));
         ui.allocate_ui(vec2(WIDTH - 2.0, BAR - 2.0), |ui| {
             ui.horizontal_centered(|ui| {
@@ -145,6 +146,9 @@ fn draw(ui: &mut egui::Ui, st: &Arc<Mutex<State>>, store: &Store, tr: &I18n) {
                         .hint_text(hint),
                 );
                 r.widget_info(|| egui::WidgetInfo::labeled(egui::Role::TextInput, true, tr.t("qAria", &[])));
+                if let Some(e) = s.err.clone() {
+                    r.clone().on_hover_text(e);
+                }
                 if s.fresh {
                     r.request_focus();
                     s.fresh = false;
@@ -219,5 +223,33 @@ fn submit(s: &mut State, store: &Store, tr: &I18n) {
             s.err = Some(tr.te(&e));
             s.fresh = true;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tmp(name: &str) -> std::path::PathBuf {
+        let d = std::env::temp_dir().join(format!("notix-ui-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        d
+    }
+
+    #[test]
+    fn enter_inbox_yoksa_acar_hata_metni_kalir() {
+        let dir = tmp("quick");
+        let store = Store::new(&dir);
+        store.set_backup(false);
+        let tr = I18n::new("en");
+        let mut s = State { projects: vec![("inbox".into(), "inbox".into(), 0), ("yok".into(), "yok".into(), 0)], text: "merhaba".into(), ..Default::default() };
+        submit(&mut s, &store, &tr);
+        assert!(s.done && s.err.is_none());
+        assert!(std::fs::read_to_string(dir.join("inbox.md")).unwrap().contains("- [ ] merhaba"));
+        // olmayan projeye: hata, yazilan satir kutuda kalir, pencere kapanmaz
+        (s.idx, s.done, s.text) = (1, false, "kaybolmasin".into());
+        submit(&mut s, &store, &tr);
+        assert!(!s.done && s.err.is_some() && s.text == "kaybolmasin");
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

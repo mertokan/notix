@@ -709,6 +709,13 @@ impl App {
         }
     }
 
+    pub fn save_doc_for_test(&mut self) {
+        self.save_doc()
+    }
+    pub fn save_mem_for_test(&mut self) {
+        self.save_mem()
+    }
+
     fn save_doc(&mut self) {
         let Some(d) = &self.doc else { return };
         match self.store.write(&d.slug, &d.text, Some(&d.expect)) {

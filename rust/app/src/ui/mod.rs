@@ -53,6 +53,8 @@ pub struct App {
     pub quick: Arc<Mutex<quick::State>>,
     pub shot: Option<shot::Driver>,
     pub quick_shot_pending: bool,
+    /// --selftest: bir sonraki karenin basinda basilacak tus
+    pub inject: Option<(egui::Key, Modifiers)>,
     quitting: bool,
     visible: bool,
 
@@ -176,6 +178,7 @@ impl App {
             next_notify: Instant::now() + Duration::from_secs(10),
             shot,
             quick_shot_pending: false,
+            inject: None,
         };
         app.refresh_lists();
         if app.shot.is_none() {
@@ -363,6 +366,10 @@ impl App {
         }
     }
 
+    pub fn toast_text(&self) -> Option<String> {
+        self.toast.as_ref().map(|t| t.0.clone())
+    }
+
     pub fn quit(&mut self, ctx: &egui::Context) {
         self.quitting = true;
         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -465,6 +472,11 @@ impl eframe::App for App {
 
     fn ui(&mut self, ui: &mut egui::Ui, _f: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        if let Some((key, modifiers)) = self.inject.take() {
+            for pressed in [true, false] {
+                ctx.input_mut(|i| i.events.push(egui::Event::Key { key, physical_key: Some(key), pressed, repeat: false, modifiers }));
+            }
+        }
         self.rects.clear();
         self.sync_theme(&ctx);
         self.shortcuts(&ctx);
@@ -759,5 +771,14 @@ impl App {
         if !files.is_empty() {
             self.confirm = Some(Confirm::Import(files));
         }
+    }
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    #[test]
+    fn sistem_dili_okunur() {
+        let l = super::system_lang().expect("reg query");
+        assert!(l.len() >= 2 && l.chars().all(|c| c.is_ascii_alphabetic() || c == '-'), "{l}");
     }
 }

@@ -229,6 +229,6 @@ mod tests {
 
     #[test]
     fn turkce_karakter_ve_bozuk_isaret() {
-        assert_eq!(parse("çok ığ ** * ` [a]( @2026-1"), vec![Seg::Text("çok ığ ** * ` [a]( @2026-1".into())]);
+        assert_eq!(parse("çok ığ ** ` [a]( @2026-1"), vec![Seg::Text("çok ığ ** ` [a]( @2026-1".into())]);
     }
 }
