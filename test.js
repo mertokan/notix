@@ -282,9 +282,10 @@ test('dosya degisince /api/events slug ile haber verir, tokensiz 401', async () 
     await reader.read() // ilk ": ok" = abone olundu
     fs.writeFileSync(path.join(store.DIR, 'olay-testi.md'), '# Olay\n')
     fs.writeFileSync(path.join(store.DIR, 'yok-sayilir.tmp'), 'x')
+    // macOS FSEvents onceki testlerin yazimlarini da gec bildirebiliyor; bizimkini bekle.
     let got = ''
-    while (!got.includes('\n\n')) got += new TextDecoder().decode((await reader.read()).value)
-    assert.equal(got, 'data: {"slug":"olay-testi"}\n\n')
+    while (!got.includes('data: {"slug":"olay-testi"}\n\n')) got += new TextDecoder().decode((await reader.read()).value)
+    assert.doesNotMatch(got, /yok-sayilir/)
     ac.abort()
   } finally {
     server.closeAllConnections()
