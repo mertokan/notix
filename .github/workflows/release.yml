@@ -1,5 +1,6 @@
 name: release
-# v* tag'i: uc platformda derleyip GitHub Releases'a yukler (package.json build.publish).
+# v* tag'i: tek bir taslak release acar; Electron (kurulum) ve Rust (tek exe) surumleri
+# uc platformda derlenip ayni release'e yuklenir. Yayinlamak elle: Releases → Publish.
 # PR/push: sadece testler.
 on:
   push:
@@ -21,8 +22,21 @@ jobs:
       - run: npm ci
       - run: npm test
 
-  release:
+  # Iki surum ayni release'e yuklensin diye taslak once acilir; electron-builder var olan
+  # taslagi bulup ona yukler, Rust isi gh ile ekler.
+  draft:
     if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --title "Notix $TAG" --notes-file .github/release-notes.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+
+  electron:
+    needs: draft
     strategy:
       fail-fast: false # bir platform patlarsa digerleri yine yuklensin
       matrix:
@@ -34,7 +48,14 @@ jobs:
         with: { node-version: 24, cache: npm }
       - run: npm ci
       - run: npm test
-      - run: npx electron-builder --publish always
+      # Bos secret bos string olarak gelir; electron-builder CSC_LINK="" gorunce calisma
+      # klasorunu sertifika sanip patliyordu (mac). Bossa hic tanimlama.
+      - shell: bash
+        run: |
+          [ -n "$CSC_LINK" ] || unset CSC_LINK CSC_KEY_PASSWORD
+          [ -n "$APPLE_ID" ] || unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+          [ -n "$CSC_LINK" ] || export CSC_IDENTITY_AUTO_DISCOVERY=false
+          npx electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Imzalama istege bagli: secret yoksa imzasiz derlenir.
@@ -47,5 +68,35 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Sertifika yoksa mac anahtar zincirinde aramasin (yoksa hata verir).
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
+
+  rust:
+    needs: draft
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: windows-x64, exe: notix.exe }
+          - { os: macos-latest, name: macos-arm64, exe: notix }
+          - { os: ubuntu-latest, name: linux-x64, exe: notix }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run: { shell: bash, working-directory: rust }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4 # rust testleri JS surumuyle esdegerligi node ile karsilastiriyor
+        with: { node-version: 24 }
+      # tray-icon, rfd ve eframe Linux'ta gtk/x11 basliklarini ister.
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libxdo-dev libayatana-appindicator3-dev libxkbcommon-dev
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: rust }
+      - run: cargo test --workspace
+      - run: cargo build --release
+      - run: |
+          out="notix-rs-$TAG-${{ matrix.name }}"
+          mkdir "$out" && cp "target/release/${{ matrix.exe }}" README.md ../LICENSE "$out/"
+          if [ "$RUNNER_OS" = Windows ]; then 7z a "$out.zip" "$out" >/dev/null; f="$out.zip"; else tar czf "$out.tar.gz" "$out"; f="$out.tar.gz"; fi
+          gh release upload "$TAG" "$f" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
