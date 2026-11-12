@@ -1,6 +1,6 @@
 {
   "name": "notix",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "license": "MIT",
   "description": "Local-first proje notlari / yapilacaklar. Kaynak = duz markdown, AI'lar dogrudan duzenler.",
