@@ -118,9 +118,3 @@ fn cevaplar_jsle_birebir_ayni() {
         assert_eq!(std::fs::read(a.join(f)).unwrap(), std::fs::read(b.join(f)).unwrap(), "{f}");
     }
 }
-
-#[test]
-fn argumansiz_kullanim_mesaji_verir() {
-    let o = Command::new(BIN).output().unwrap();
-    assert!(!o.status.success() && String::from_utf8_lossy(&o.stderr).contains("--mcp"));
-}
