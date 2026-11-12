@@ -129,7 +129,7 @@ fn draw(ui: &mut egui::Ui, st: &Arc<Mutex<State>>, store: &Store, tr: &I18n) {
             let _ = std::fs::write(Config::home().join("quick-to"), &s.projects[s.idx].0);
         }
         super::project::md_keys(ui, box_id, &mut s.text);
-        let enter = ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter));
+        let enter = super::project::plain_enter(&ctx);
         ui.allocate_ui(vec2(WIDTH - 2.0, BAR - 2.0), |ui| {
             ui.horizontal_centered(|ui| {
                 ui.add_space(12.0);

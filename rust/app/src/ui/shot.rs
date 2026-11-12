@@ -29,6 +29,7 @@ fn look(a: &mut App, lang: &str, theme: &str, accent: &str) {
     a.hit = None;
     a.find.clear();
     a.hot.clear();
+    a.clear_toast();
 }
 
 fn proj(a: &mut App) {
@@ -146,7 +147,8 @@ pub fn step(app: &mut App, ctx: &egui::Context) {
 struct Test {
     name: &'static str,
     setup: fn(&mut App),
-    key: Option<(egui::Key, egui::Modifiers)>,
+    /// (tus, degistiriciler, kaçinci karede)
+    key: Option<(egui::Key, egui::Modifiers, u32)>,
     check: fn(&mut App) -> bool,
 }
 
@@ -159,6 +161,28 @@ fn file(a: &App) -> String {
 
 const TESTS: &[Test] = &[
     Test {
+        name: "Shift+Enter alt satir ekler, kaydetmez",
+        setup: |a| {
+            look(a, "en", "dark", "patina");
+            proj(a);
+            let i = line_of(a, "future task");
+            a.edit = Some(Edit { i, expect: "future task @2099-12-31".into(), text: "multi".into(), fresh: true });
+        },
+        key: Some((egui::Key::Enter, egui::Modifiers::SHIFT, 10)),
+        check: |a| a.edit.as_ref().is_some_and(|e| e.text.contains('\n')) && !file(a).contains("multi"),
+    },
+    Test {
+        name: "disaridan degisiklik: reload(poll) satiri amber isaretler + toast",
+        setup: |a| {
+            a.clear_toast();
+            let f = file(a).replace("- [ ] Bellek panelini yaz", "- [x] Bellek panelini yaz");
+            std::fs::write(a.store.dir().join("notix.md"), f).ok();
+            a.reload(true);
+        },
+        key: None,
+        check: |a| a.hot.keys().any(|k| k.starts_with("Bellek panelini")) && a.toast_text().is_some_and(|t| t.contains('1')),
+    },
+    Test {
         name: "satir duzenle + Enter kaydeder",
         setup: |a| {
             look(a, "en", "dark", "patina");
@@ -166,7 +190,7 @@ const TESTS: &[Test] = &[
             let i = line_of(a, "future task");
             a.edit = Some(Edit { i, expect: "future task @2099-12-31".into(), text: "future edited @2099-12-31".into(), fresh: true });
         },
-        key: Some((egui::Key::Enter, egui::Modifiers::NONE)),
+        key: Some((egui::Key::Enter, egui::Modifiers::NONE, 10)),
         check: |a| a.edit.is_none() && file(a).contains("- [ ] future edited @2099-12-31"),
     },
     Test {
@@ -175,7 +199,7 @@ const TESTS: &[Test] = &[
             let i = line_of(a, "future edited");
             a.edit = Some(Edit { i, expect: "future edited @2099-12-31".into(), text: "SHOULD NOT SAVE".into(), fresh: true });
         },
-        key: Some((egui::Key::Escape, egui::Modifiers::NONE)),
+        key: Some((egui::Key::Escape, egui::Modifiers::NONE, 10)),
         check: |a| a.edit.is_none() && !file(a).contains("SHOULD NOT SAVE"),
     },
     Test {
@@ -184,7 +208,7 @@ const TESTS: &[Test] = &[
             a.add.text = "added by selftest".into();
             a.focus_add_again();
         },
-        key: Some((egui::Key::Enter, egui::Modifiers::NONE)),
+        key: Some((egui::Key::Enter, egui::Modifiers::NONE, 10)),
         check: |a| {
             let f = file(a);
             a.add.text.is_empty() && f.find("- [ ] added by selftest").is_some_and(|p| f.find("## Memory").is_some_and(|m| p < m))
@@ -242,8 +266,24 @@ external line
             a.mem_edit = None;
             a.reload(false);
         },
-        key: Some((egui::Key::N, egui::Modifiers::NONE)),
+        key: Some((egui::Key::N, egui::Modifiers::NONE, 10)),
         check: |a| a.add.text.is_empty(),
+    },
+    Test {
+        name: "Enter ile acilan onay diyalogu kendiliginden onaylanmaz",
+        setup: |a| {
+            a.edit = None;
+            let i = line_of(a, "future edited");
+            a.confirm = Some(Confirm::DelLine { i, text: "future edited @2099-12-31".into() });
+        },
+        key: Some((egui::Key::Enter, egui::Modifiers::NONE, 1)),
+        check: |a| a.confirm.is_some() && file(a).contains("future edited"),
+    },
+    Test {
+        name: "onay diyalogunda odaktaki OK + Enter onaylar (satir silinir)",
+        setup: |_| {},
+        key: Some((egui::Key::Enter, egui::Modifiers::NONE, 10)),
+        check: |a| a.confirm.is_none() && !file(a).contains("future edited"),
     },
 ];
 
@@ -254,9 +294,9 @@ fn run_tests(app: &mut App, d: &mut Driver) -> bool {
         (t.setup)(app);
     }
     d.tframe += 1;
-    if d.tframe == 10 {
-        if let Some(k) = t.key {
-            app.inject = Some(k);
+    if let Some((k, m, at)) = t.key {
+        if d.tframe == at {
+            app.inject = Some((k, m));
         }
     }
     if d.tframe == 16 {

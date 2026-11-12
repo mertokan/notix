@@ -58,7 +58,7 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
         None => area,
     };
     let card = egui::Frame::new().fill(p.panel).stroke(Stroke::new(1.0, p.rule)).corner_radius(10.0).inner_margin(Margin { left: 18, right: 18, top: 16, bottom: 12 });
-    let out = egui::Modal::new(egui::Id::unique("guide")).backdrop_color(Color32::TRANSPARENT).area(area).frame(card).show(ctx, |ui| {
+    let out = egui::Modal::new(egui::Id::unique("guide")).backdrop_color(Color32::TRANSPARENT).area(area).frame(egui::Frame::NONE).show(ctx, |ui| {
         // karartma: halka cevresi acik, gerisi %60 siyah
         let dark = Color32::from_black_alpha(153);
         let pt = ui.painter();
@@ -75,35 +75,38 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                 pt.rect_filled(screen, 0.0, dark);
             }
         }
-        ui.set_width(304.0);
-        ui.add(egui::Label::new(super::w::mono(format!("{}/{}", i + 1, STEPS.len()), 11.0, p.faint)).selectable(false));
-        ui.add_space(6.0);
-        ui.add(egui::Label::new(RichText::new(app.t(title)).font(egui::FontId::new(15.0, egui::FontFamily::Name("bold".into())))));
-        ui.add_space(4.0);
-        let args = [("k", app.cfg.quick_add.as_str()), ("s", &app.t("settings")), ("m", &app.t("copyMcp"))];
-        let args: Vec<(&str, &str)> = args.iter().map(|(a, b)| (*a, *b)).collect();
-        ui.label(RichText::new(app.i18n.t(body, &args)).size(13.5).color(p.dim));
-        ui.add_space(12.0);
-        ui.horizontal(|ui| {
-            if i != last && super::w::link(ui, &p, &app.t("gSkip"), super::w::Kind::Plain).clicked() {
-                act = 2;
-            }
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let next = egui::Button::new(RichText::new(app.t(if i == last { "gStart" } else { "gNext" })).color(p.ink).strong()).fill(p.patina);
-                let r = ui.add(next);
-                // adim degisince odak "ileri"de
-                let seen: Option<usize> = ui.data(|d| d.get_temp(egui::Id::unique("guide_step")));
-                if seen != Some(i) {
-                    r.request_focus();
-                    ui.data_mut(|d| d.insert_temp(egui::Id::unique("guide_step"), i));
+        card.show(ui, |ui| {
+            ui.set_width(304.0);
+            ui.add(egui::Label::new(super::w::mono(format!("{}/{}", i + 1, STEPS.len()), 11.0, p.faint)).selectable(false));
+            ui.add_space(6.0);
+            ui.add(egui::Label::new(RichText::new(app.t(title)).font(egui::FontId::new(15.0, egui::FontFamily::Name("bold".into())))));
+            ui.add_space(4.0);
+            let args = [("k", app.cfg.quick_add.as_str()), ("s", &app.t("settings")), ("m", &app.t("copyMcp"))];
+            let args: Vec<(&str, &str)> = args.iter().map(|(a, b)| (*a, *b)).collect();
+            ui.label(RichText::new(app.i18n.t(body, &args)).size(13.5).color(p.dim));
+            ui.add_space(12.0);
+            ui.horizontal(|ui| {
+                if i != last && super::w::link(ui, &p, &app.t("gSkip"), super::w::Kind::Plain).clicked() {
+                    act = 2;
                 }
-                if r.clicked() {
-                    act = 1;
-                }
-                if i > 0 && super::w::link(ui, &p, &app.t("gBack"), super::w::Kind::Plain).clicked() {
-                    act = -1;
-                }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let next = egui::Button::new(RichText::new(app.t(if i == last { "gStart" } else { "gNext" })).color(p.ink).strong()).fill(p.patina);
+                    let r = ui.add(next);
+                    // adim degisince odak "ileri"de
+                    let seen: Option<usize> = ui.data(|d| d.get_temp(egui::Id::unique("guide_step")));
+                    if seen != Some(i) {
+                        r.request_focus();
+                        ui.data_mut(|d| d.insert_temp(egui::Id::unique("guide_step"), i));
+                    }
+                    if r.clicked() {
+                        act = 1;
+                    }
+                    if i > 0 && super::w::link(ui, &p, &app.t("gBack"), super::w::Kind::Plain).clicked() {
+                        act = -1;
+                    }
+                });
             });
+
         });
     });
     ctx.data_mut(|d| d.insert_temp(egui::Id::unique("guide_size"), out.response.rect.size()));

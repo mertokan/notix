@@ -91,6 +91,15 @@ pub fn md_prefix(ctx: &egui::Context, id: Id, text: &mut String, mark: &str) {
     }
 }
 
+/// Shift'siz Enter'i tuketir (consume_key fazladan Shift'i yok sayar; Shift+Enter alt satir olmali).
+pub fn plain_enter(ctx: &egui::Context) -> bool {
+    ctx.input_mut(|i| {
+        let n = i.events.len();
+        i.events.retain(|e| !matches!(e, egui::Event::Key { key: Key::Enter, pressed: true, modifiers, .. } if !modifiers.shift && !modifiers.ctrl && !modifiers.alt));
+        i.events.len() != n
+    })
+}
+
 /// Ctrl+B/I/K (odaktaki yazi kutusunda)
 pub fn md_keys(ui: &Ui, id: Id, text: &mut String) {
     if !ui.memory(|m| m.has_focus(id)) {
@@ -392,6 +401,9 @@ impl App {
                             let color = if done { p.patina } else if hov { p.vellum } else { p.dim };
                             let r = ui.add(egui::Label::new(mono(if done { "[x]" } else { "[ ]" }, 14.0, color)).sense(Sense::click()).selectable(false));
                             r.widget_info(|| WidgetInfo::selected(Role::CheckBox, true, done, &text));
+                            if r.has_focus() {
+                                ui.painter().rect_stroke(r.rect.expand(2.0), 3.0, Stroke::new(2.0, p.patina), egui::StrokeKind::Outside);
+                            }
                             if r.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
                                 self.update_task(i, &text, TaskUpdate { done: Some(!done), ..Default::default() });
                             }
@@ -478,7 +490,7 @@ impl App {
         }
         let focused = ui.memory(|m| m.has_focus(id));
         // Enter kaydeder, Shift+Enter alt satir (kutu onu kendisi isler)
-        let enter = focused && ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter));
+        let enter = focused && plain_enter(ui.ctx());
         let r = egui::Frame::new().fill(p.ink).stroke(Stroke::new(1.0, p.patina)).corner_radius(4.0).inner_margin(Margin::symmetric(6, 1)).show(ui, |ui| {
             ui.add(egui::TextEdit::multiline(&mut e.text).id(id).frame(egui::Frame::NONE).desired_rows(1).desired_width(tw - 14.0))
         });
@@ -572,7 +584,7 @@ impl App {
                 }
             });
             let focused = ui.memory(|m| m.has_focus(id));
-            if focused && ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter)) {
+            if focused && plain_enter(ui.ctx()) {
                 submit = true;
             }
             md_keys(ui, id, &mut self.add.text);

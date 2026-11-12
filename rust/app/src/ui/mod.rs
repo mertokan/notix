@@ -370,6 +370,10 @@ impl App {
         self.toast.as_ref().map(|t| t.0.clone())
     }
 
+    pub fn clear_toast(&mut self) {
+        self.toast = None;
+    }
+
     pub fn quit(&mut self, ctx: &egui::Context) {
         self.quitting = true;
         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -431,7 +435,13 @@ fn system_lang_cached() -> Option<String> {
 
 /// egui tusundan Electron accelerator metni ("Control+Alt+N", "?"): yakalama de eslestirme de bunu kullanir.
 pub fn accel(key: Key, m: Modifiers) -> Option<String> {
-    let name = key.symbol_or_name();
+    // noktalama simgesi kalir ("?"), oklar vb. Electron adlariyla ("Up")
+    let sym = key.symbol_or_name();
+    let name = match sym {
+        "+" => "Plus",
+        s if s.is_ascii() => s,
+        _ => key.name(),
+    };
     if name.is_empty() {
         return None;
     }
@@ -673,7 +683,13 @@ impl App {
             ui.label(msg);
             ui.add_space(8.0);
             ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
-                if ui.button("OK").clicked() || ui.input(|i| i.key_pressed(Key::Enter)) {
+                // Enter ile acan eylem (Tab + Enter) diyaloga da sizmasin: odak ancak ilk karede istenir
+                let ok = ui.button("OK");
+                if !ui.data(|d| d.get_temp::<bool>(egui::Id::unique("confirm_seen"))).unwrap_or(false) {
+                    ok.request_focus();
+                    ui.data_mut(|d| d.insert_temp(egui::Id::unique("confirm_seen"), true));
+                }
+                if ok.clicked() {
                     answer = Some(true);
                 }
                 if ui.button(self.t("cancel")).clicked() {
@@ -683,6 +699,9 @@ impl App {
         });
         if m.should_close() {
             answer = Some(false);
+        }
+        if answer.is_some() {
+            ctx.data_mut(|d| d.remove_temp::<bool>(egui::Id::unique("confirm_seen")));
         }
         match answer {
             Some(true) => {
